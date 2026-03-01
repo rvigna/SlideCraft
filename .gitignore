@@ -1,0 +1,72 @@
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.vim/
+.emacs.d/
+*.sublime-project
+*.sublime-workspace
+.IntelliJIdea*/
+*.iml
+
+# Development
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env*.local
+
+# Package Manager Files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+.nyc_output/
+
+# Browser Storage
+*.db
+*.sqlite
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# OS-specific
+.AppleDouble
+.LSOverride
+*.cab
+*.lnk
+
+# Project-specific exports (optional - uncomment if you want to ignore exports)
+# exports/
+# backups/

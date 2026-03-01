@@ -1,0 +1,30 @@
+{
+  "name": "slidecraft",
+  "version": "1.0.0",
+  "description": "A modern, lightweight web-based presentation editor",
+  "author": {
+    "name": "Rodrigo Vigna",
+    "email": "rvigna@outlook.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "presentation",
+    "slides",
+    "editor",
+    "web-app",
+    "javascript",
+    "canvas"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/slidecraft"
+  },
+  "main": "app.js",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "serve:8080": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

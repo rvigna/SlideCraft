@@ -1,0 +1,312 @@
+<!--
+  SlideCraft — Presentation Editor
+  Author: Rodrigo Vigna (rvigna@outlook.com)
+  License: MIT
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SlideCraft — Presentation Editor</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&family=Lato:wght@300;400;700;900&family=Montserrat:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;600;700;900&family=Poppins:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Title Bar -->
+    <header class="title-bar">
+      <div class="title-left">
+        <div class="logo"><i class="fa-solid fa-display"></i></div>
+        <div class="title-info">
+          <input type="text" id="doc-title" value="Untitled Presentation" spellcheck="false">
+          <div class="menu-bar">
+            <button class="menu-btn" data-menu="file">File</button>
+            <button class="menu-btn" data-menu="edit">Edit</button>
+            <button class="menu-btn" data-menu="view">View</button>
+            <button class="menu-btn" data-menu="insert">Insert</button>
+            <button class="menu-btn" data-menu="format">Format</button>
+            <button class="menu-btn" data-menu="slide">Slide</button>
+            <button class="menu-btn" data-menu="help">Help</button>
+          </div>
+        </div>
+      </div>
+      <div class="title-right">
+        <span class="save-status" id="save-status"></span>
+        <button class="present-btn" id="btn-present" title="Start presentation (F5)">
+          <i class="fa-solid fa-play"></i> Present
+        </button>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar" id="toolbar">
+      <div class="toolbar-row">
+        <!-- Undo/Redo -->
+        <div class="toolbar-group">
+          <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+          <button class="tool-btn" id="btn-redo" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <!-- Insert -->
+        <div class="toolbar-group">
+          <button class="tool-btn" id="btn-add-text" title="Insert text box"><i class="fa-solid fa-font"></i></button>
+          <button class="tool-btn" id="btn-add-image" title="Insert image"><i class="fa-solid fa-image"></i></button>
+          <button class="tool-btn" id="btn-add-shape" title="Insert shape"><i class="fa-solid fa-shapes"></i></button>
+          <button class="tool-btn" id="btn-add-icon" title="Insert icon"><i class="fa-solid fa-icons"></i></button>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <!-- Font formatting -->
+        <div class="toolbar-group" id="text-format-group">
+          <select id="font-family" title="Font">
+            <option value="Inter">Inter</option>
+            <option value="Arial">Arial</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="Poppins">Poppins</option>
+            <option value="Roboto">Roboto</option>
+            <option value="Open Sans">Open Sans</option>
+            <option value="Lato">Lato</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Source Code Pro">Source Code Pro</option>
+          </select>
+          <div class="font-size-group">
+            <button class="tool-btn size-btn" id="btn-font-decrease" title="Decrease font size"><i class="fa-solid fa-minus"></i></button>
+            <input type="number" id="font-size" value="24" min="1" max="400" title="Font size (pt)">
+            <button class="tool-btn size-btn" id="btn-font-increase" title="Increase font size"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group" id="text-style-group">
+          <button class="tool-btn format-btn" id="btn-bold" title="Bold (Ctrl+B)"><i class="fa-solid fa-bold"></i></button>
+          <button class="tool-btn format-btn" id="btn-italic" title="Italic (Ctrl+I)"><i class="fa-solid fa-italic"></i></button>
+          <button class="tool-btn format-btn" id="btn-underline" title="Underline (Ctrl+U)"><i class="fa-solid fa-underline"></i></button>
+          <button class="tool-btn format-btn" id="btn-strikethrough" title="Strikethrough"><i class="fa-solid fa-strikethrough"></i></button>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group" id="color-group">
+          <div class="color-btn-wrap">
+            <button class="tool-btn" id="btn-text-color" title="Text color">
+              <i class="fa-solid fa-font"></i>
+              <div class="color-indicator" id="text-color-indicator" style="background:#000000"></div>
+            </button>
+            <input type="color" id="text-color-picker" value="#000000">
+          </div>
+          <div class="color-btn-wrap">
+            <button class="tool-btn" id="btn-fill-color" title="Fill color">
+              <i class="fa-solid fa-fill-drip"></i>
+              <div class="color-indicator" id="fill-color-indicator" style="background:transparent"></div>
+            </button>
+            <input type="color" id="fill-color-picker" value="#ffffff">
+          </div>
+          <div class="color-btn-wrap">
+            <button class="tool-btn" id="btn-border-color" title="Border color">
+              <i class="fa-solid fa-vector-square"></i>
+              <div class="color-indicator" id="border-color-indicator" style="background:#000000"></div>
+            </button>
+            <input type="color" id="border-color-picker" value="#000000">
+          </div>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <!-- Alignment -->
+        <div class="toolbar-group" id="align-group">
+          <button class="tool-btn align-btn" id="btn-align-left" title="Align left"><i class="fa-solid fa-align-left"></i></button>
+          <button class="tool-btn align-btn" id="btn-align-center" title="Center"><i class="fa-solid fa-align-center"></i></button>
+          <button class="tool-btn align-btn" id="btn-align-right" title="Align right"><i class="fa-solid fa-align-right"></i></button>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <!-- Lists -->
+        <div class="toolbar-group">
+          <button class="tool-btn" id="btn-ul" title="Bullet list"><i class="fa-solid fa-list-ul"></i></button>
+          <button class="tool-btn" id="btn-ol" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <!-- Object arrangement -->
+        <div class="toolbar-group" id="arrange-group">
+          <button class="tool-btn" id="btn-bring-front" title="Bring to front"><i class="fa-solid fa-layer-group"></i></button>
+          <button class="tool-btn" id="btn-send-back" title="Send to back"><i class="fa-solid fa-layer-group fa-flip-vertical"></i></button>
+          <button class="tool-btn" id="btn-delete-obj" title="Delete selected"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="toolbar-separator"></div>
+
+        <!-- Slide background -->
+        <div class="toolbar-group">
+          <div class="color-btn-wrap">
+            <button class="tool-btn" id="btn-slide-bg" title="Slide background">
+              <i class="fa-solid fa-palette"></i>
+              <div class="color-indicator" id="slide-bg-indicator" style="background:#ffffff"></div>
+            </button>
+            <input type="color" id="slide-bg-picker" value="#ffffff">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Slide Panel (thumbnails) -->
+      <div class="slide-panel" id="slide-panel">
+        <div class="slide-list" id="slide-list">
+          <!-- Thumbnails will be generated by JS -->
+        </div>
+        <button class="add-slide-btn" id="btn-add-slide" title="Add new slide">
+          <i class="fa-solid fa-plus"></i> New Slide
+        </button>
+      </div>
+
+      <!-- Slide Editor -->
+      <div class="editor-area" id="editor-area">
+        <div class="canvas-wrapper" id="canvas-wrapper">
+          <div class="slide-canvas" id="slide-canvas">
+            <!-- Slide objects rendered here -->
+          </div>
+          <!-- Selection box overlay -->
+          <div class="selection-box" id="selection-box" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Properties Panel -->
+      <div class="properties-panel" id="properties-panel">
+        <div class="panel-header">Properties</div>
+        <div class="panel-body" id="panel-body">
+          <div class="panel-section" id="section-position">
+            <div class="panel-section-title">Position & Size</div>
+            <div class="prop-grid">
+              <label>X</label><input type="number" id="prop-x" class="prop-input" step="1">
+              <label>Y</label><input type="number" id="prop-y" class="prop-input" step="1">
+              <label>W</label><input type="number" id="prop-w" class="prop-input" step="1" min="10">
+              <label>H</label><input type="number" id="prop-h" class="prop-input" step="1" min="10">
+            </div>
+            <div class="prop-grid" style="margin-top:8px;">
+              <label>Rotation</label>
+              <input type="number" id="prop-rotation" class="prop-input" step="1" min="0" max="360" style="grid-column: span 3;">
+            </div>
+          </div>
+          <div class="panel-section" id="section-appearance">
+            <div class="panel-section-title">Appearance</div>
+            <div class="prop-grid">
+              <label>Opacity</label>
+              <input type="range" id="prop-opacity" min="0" max="100" value="100" style="grid-column: span 3;">
+            </div>
+            <div class="prop-grid" style="margin-top:4px;">
+              <label>Border</label>
+              <select id="prop-border-style" class="prop-input" style="grid-column: span 3;">
+                <option value="none">None</option>
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </div>
+            <div class="prop-grid" style="margin-top:4px;">
+              <label>Width</label>
+              <input type="number" id="prop-border-width" class="prop-input" min="0" max="20" value="1" style="grid-column: span 3;">
+            </div>
+            <div class="prop-grid" style="margin-top:4px;">
+              <label>Radius</label>
+              <input type="number" id="prop-border-radius" class="prop-input" min="0" value="0" style="grid-column: span 3;">
+            </div>
+            <div class="prop-grid" style="margin-top:4px;">
+              <label>Shadow</label>
+              <select id="prop-shadow" class="prop-input" style="grid-column: span 3;">
+                <option value="none">None</option>
+                <option value="sm">Small</option>
+                <option value="md">Medium</option>
+                <option value="lg">Large</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-section" id="section-transition">
+            <div class="panel-section-title">Slide Transition</div>
+            <div class="prop-grid">
+              <label>Effect</label>
+              <select id="prop-transition" class="prop-input" style="grid-column: span 3;">
+                <option value="none">None</option>
+                <option value="fade">Fade</option>
+                <option value="slide-left">Slide Left</option>
+                <option value="slide-right">Slide Right</option>
+                <option value="slide-up">Slide Up</option>
+                <option value="slide-down">Slide Down</option>
+                <option value="zoom-in">Zoom In</option>
+                <option value="zoom-out">Zoom Out</option>
+              </select>
+            </div>
+            <div class="prop-grid" style="margin-top:4px;">
+              <label>Duration</label>
+              <input type="number" id="prop-transition-duration" class="prop-input" min="0.1" max="5" step="0.1" value="0.5" style="grid-column: span 3;">
+            </div>
+          </div>
+          <div class="panel-section" id="section-notes">
+            <div class="panel-section-title">Speaker Notes</div>
+            <textarea id="speaker-notes" placeholder="Add speaker notes for this slide..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-left">
+        <span class="status-item" id="slide-counter">Slide 1 of 1</span>
+        <span class="status-sep">|</span>
+        <span class="status-item" id="object-count">0 objects</span>
+      </div>
+      <div class="status-right">
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoom-out" title="Zoom out"><i class="fa-solid fa-minus"></i></button>
+          <span class="zoom-level" id="zoom-level">100%</span>
+          <input type="range" id="zoom-slider" min="25" max="200" value="100" step="5">
+          <button class="zoom-btn" id="zoom-in" title="Zoom in"><i class="fa-solid fa-plus"></i></button>
+          <button class="zoom-btn" id="zoom-fit" title="Fit to window"><i class="fa-solid fa-expand"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dropdown Menu -->
+  <div class="dropdown-menu" id="dropdown-menu" style="display:none;"></div>
+
+  <!-- Shape Picker -->
+  <div class="shape-picker popup-menu" id="shape-picker" style="display:none;">
+    <div class="shape-grid" id="shape-grid"></div>
+  </div>
+
+  <!-- Icon Picker -->
+  <div class="icon-picker popup-menu" id="icon-picker" style="display:none;">
+    <input type="text" id="icon-search" placeholder="Search icons..." class="icon-search-input">
+    <div class="icon-grid" id="icon-grid"></div>
+  </div>
+
+  <!-- Layout Picker -->
+  <div class="layout-picker popup-menu" id="layout-picker" style="display:none;">
+    <div class="layout-grid" id="layout-grid"></div>
+  </div>
+
+  <!-- Slide Context Menu -->
+  <div class="context-menu" id="context-menu" style="display:none;"></div>
+
+  <!-- Presentation Overlay -->
+  <div class="presentation-overlay" id="presentation-overlay" style="display:none;">
+    <div class="presentation-slide" id="presentation-slide"></div>
+    <div class="presentation-controls" id="presentation-controls">
+      <span id="pres-slide-num"></span>
+      <button id="pres-prev"><i class="fa-solid fa-chevron-left"></i></button>
+      <button id="pres-next"><i class="fa-solid fa-chevron-right"></i></button>
+      <button id="pres-exit"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
