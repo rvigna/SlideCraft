@@ -74,7 +74,51 @@ export interface IconObject extends BaseObject {
   color: string;
 }
 
-export type SlideObject = TextObject | ShapeObject | ImageObject | IconObject;
+export interface TableCell {
+  text: string;
+  fill?: string;
+  color?: string;
+  bold?: boolean;
+  align?: TextAlign;
+}
+
+/** Grid lines use the object's border style/width/color; empty cells use backgroundColor */
+export interface TableObject extends BaseObject, TextStyle {
+  type: 'table';
+  rows: TableCell[][];
+  /** Column widths as fractions of the table width */
+  colWidths: number[];
+  headerRow: boolean;
+  bandedRows: boolean;
+  headerFill: string;
+  headerColor: string;
+  bandFill: string;
+}
+
+export type ChartType = 'column' | 'bar' | 'line' | 'area' | 'pie' | 'doughnut';
+
+export interface ChartSeries {
+  name: string;
+  values: number[];
+  color: string;
+}
+
+export interface ChartObject extends BaseObject {
+  type: 'chart';
+  chartType: ChartType;
+  title: string;
+  categories: string[];
+  series: ChartSeries[];
+  showLegend: boolean;
+  showValues: boolean;
+  /** Pie/doughnut slice colors by category; falls back to the series palette */
+  pointColors?: string[];
+  fontFamily: string;
+  /** Axis, label and legend text color */
+  color: string;
+}
+
+export type SlideObject = TextObject | ShapeObject | ImageObject | IconObject | TableObject | ChartObject;
 export type ObjectType = SlideObject['type'];
 
 export interface Slide {
@@ -94,5 +138,6 @@ export interface Deck {
   nextObjectId: number;
 }
 
-export const isTextual = (o: SlideObject): o is TextObject | ShapeObject =>
-  o.type === 'text' || o.type === 'shape';
+/** Objects the text toolbar (font, size, bold, alignment…) applies to */
+export const isTextual = (o: SlideObject): o is TextObject | ShapeObject | TableObject =>
+  o.type === 'text' || o.type === 'shape' || o.type === 'table';

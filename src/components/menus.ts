@@ -4,8 +4,9 @@ import {
   DocumentAdd, DocumentExport, DocumentImport, DocumentPdf, Download, Edit, FitToScreen, FolderOpen, Html,
   Image, Information, Keyboard, Json, Maximize, Paste, Play, Printer, Redo, Save, SendToBack, Shapes, Template,
   TextBold, TextFont, TextItalic, TextUnderline, TrashCan, Undo, ZoomIn, ZoomOut, ColorSwitch, Screen, Copy as CopySlide,
-  ArrowUp, ArrowDown, Add, SelectWindow, Idea,
+  ArrowUp, ArrowDown, Add, SelectWindow, Idea, DataTable, ChartColumn, Code,
 } from '@carbon/icons-react';
+import { insertChart, insertTable } from './objectOps';
 import type { MenuItem } from '../store/ui';
 import { openDialog } from '../store/ui';
 import * as ed from '../store/editor';
@@ -87,6 +88,12 @@ export function canvasMenuItems(onObject: boolean): MenuItem[] {
   if (!multi && first && (first.type === 'text' || (first.type === 'shape' && first.shapeType !== 'line'))) {
     items.push({ label: 'Edit Text', icon: Edit, shortcut: 'Enter', onClick: () => ed.setEditing(first.id) });
   }
+  if (!multi && first?.type === 'table') {
+    items.push({ label: 'Edit Cells', icon: Edit, shortcut: 'Enter', onClick: () => ed.setEditing(first.id) });
+  }
+  if (!multi && first?.type === 'chart') {
+    items.push({ label: 'Edit Chart Data…', icon: ChartColumn, shortcut: 'Enter', onClick: () => openDialog('chart') });
+  }
   if (!multi && first?.type === 'image') {
     items.push({ label: 'Replace Image…', icon: Image, onClick: () => window.dispatchEvent(new CustomEvent('slidecraft:replace-image', { detail: first.id })) });
   }
@@ -154,6 +161,17 @@ export function menubar(): { id: string; label: string; items: () => MenuItem[] 
         { label: 'Image…', icon: Image, onClick: () => openDialog('image') },
         { label: 'Shape', icon: Shapes, onClick: () => window.dispatchEvent(new Event('slidecraft:open-shapes')) },
         { label: 'Icon', icon: Idea, onClick: () => window.dispatchEvent(new Event('slidecraft:open-icons')) },
+        { label: 'Table', icon: DataTable, onClick: () => insertTable() },
+        {
+          label: 'Chart', icon: ChartColumn, children: [
+            { label: 'Column', onClick: () => insertChart('column') },
+            { label: 'Bar', onClick: () => insertChart('bar') },
+            { label: 'Line', onClick: () => insertChart('line') },
+            { label: 'Area', onClick: () => insertChart('area') },
+            { label: 'Pie', onClick: () => insertChart('pie') },
+            { label: 'Doughnut', onClick: () => insertChart('doughnut') },
+          ],
+        },
         'divider',
         { label: 'New Slide', icon: Add, shortcut: `${MOD}M`, onClick: () => ed.addSlide() },
       ],
@@ -185,6 +203,12 @@ export function menubar(): { id: string; label: string; items: () => MenuItem[] 
     {
       id: 'help', label: 'Help', items: () => [
         { label: 'Keyboard Shortcuts', icon: Keyboard, shortcut: `${MOD}/`, onClick: () => openDialog('shortcuts') },
+        {
+          label: 'Automation API (Console)', icon: Code, onClick: () => {
+            window.slidecraft?.help();
+            ed.toast('info', 'window.slidecraft is ready', 'Open the browser console (F12) — the API reference is printed there.');
+          },
+        },
         { label: 'About SlideCraft', icon: Information, onClick: () => openDialog('about') },
       ],
     },

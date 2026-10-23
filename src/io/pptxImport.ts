@@ -1,7 +1,7 @@
 /* Import PowerPoint (.pptx) files by reading the Office Open XML directly. */
 import JSZip from 'jszip';
 import { SLIDE_H, SLIDE_W, type ShapeType } from '../model/types';
-import { hslToRgb, parseColor, rgbaToCss, rgbToHsl, type Rgba } from '../model/color';
+import { contrastText, hslToRgb, mixColors, parseColor, rgbaToCss, rgbToHsl, type Rgba } from '../model/color';
 import { paragraphsToHtml, type Paragraph, type TextRun } from '../model/richtext';
 
 // ---------------------------------------------------------------
@@ -598,6 +598,195 @@ async function parseShape(sp: El, xf: Xf, ctx: SlideCtx, inheritedFromLayout = f
   });
 }
 
+// ---------------------------------------------------------------
+// Tables, charts and SmartArt
+// ---------------------------------------------------------------
+type Cell = { text: string; fill?: string; color?: string; bold?: boolean; align?: ParsedText['align'] };
+
+function cellText(tc: El): { text: string; bold?: boolean; color?: string; sz?: number; align?: ParsedText['align'] } {
+  const paras = kids(kid(tc, 'txBody'), 'p');
+  const text = paras.map(p => [...p.getElementsByTagName('*')].filter(e => e.localName === 't').map(t => t.textContent).join('')).join('\n');
+  const rPr = desc(kid(tc, 'txBody'), 'rPr');
+  const b = attr(rPr, 'b');
+  const sz = numAttr(rPr, 'sz');
+  const algn = attr(desc(kid(tc, 'txBody'), 'pPr'), 'algn');
+  return { text, bold: b == null ? undefined : b === '1' || b === 'true', sz: sz ? sz / 100 : undefined, align: algn ? ALIGN[algn] : undefined, color: undefined };
+}
+
+/** A value shared by every entry, or null */
+function uniform<T>(values: (T | undefined)[]): T | null {
+  return values.length && values.every(v => v === values[0]) && values[0] !== undefined ? values[0] as T : null;
+}
+
+function parseTable(tbl: El, g: Geo, ctx: SlideCtx): Record<string, unknown> {
+  const widths = kids(kid(tbl, 'tblGrid'), 'gridCol').map(c => numAttr(c, 'w') ?? 1);
+  const total = widths.reduce((a, b) => a + b, 0) || 1;
+  const tblPr = kid(tbl, 'tblPr');
+  const firstRow = attr(tblPr, 'firstRow') === '1';
+  const bandRow = attr(tblPr, 'bandRow') === '1';
+  const styled = !!desc(tblPr, 'tableStyleId') || !!kid(tbl, 'tableStyleId');
+  const sizes: number[] = [];
+  let line = null as { color: string; width: number } | null; // assigned inside the cell loop
+
+  const rows: Cell[][] = kids(tbl, 'tr').map(tr => kids(tr, 'tc').map(tc => {
+    const t = cellText(tc);
+    const tcPr = kid(tc, 'tcPr');
+    const cell: Cell = { text: attr(tc, 'hMerge') === '1' || attr(tc, 'vMerge') === '1' ? '' : t.text };
+    const fill = fillOf(tcPr, ctx.colors);
+    if (fill?.kind === 'color') cell.fill = fill.color;
+    else if (fill?.kind === 'gradient') cell.fill = fill.color;
+    else if (fill?.kind === 'none') cell.fill = 'transparent';
+    const runFill = fillOf(desc(kid(tc, 'txBody'), 'rPr'), ctx.colors);
+    if (runFill?.kind === 'color') cell.color = runFill.color;
+    if (t.bold != null) cell.bold = t.bold;
+    if (t.align) cell.align = t.align;
+    if (t.sz) sizes.push(t.sz);
+    if (!line) {
+      for (const side of ['lnB', 'lnT', 'lnL', 'lnR']) {
+        const ln = kid(tcPr, side);
+        const lf = fillOf(ln, ctx.colors);
+        if (lf?.kind === 'color') { line = { color: lf.color, width: Math.max(1, ((numAttr(ln, 'w') ?? 12700) / 12700) * ctx.fontPx) }; break; }
+      }
+    }
+    return cell;
+  }));
+
+  const cols = Math.max(1, ...rows.map(r => r.length));
+  rows.forEach(r => { while (r.length < cols) r.push({ text: '' }); });
+  // Row heights are minimums; the frame may report less than the rows need
+  const rowsH = kids(tbl, 'tr').reduce((sum, tr) => sum + (numAttr(tr, 'h') ?? 0), 0) * ctx.fontPx / 12700;
+  const accent = ctx.theme.colors.accent1 ?? '#4472c4';
+  const anyFill = rows.some(r => r.some(c => c.fill !== undefined));
+  const fontSize = (sizes.length ? sizes.sort((a, b) => a - b)[Math.floor(sizes.length / 2)] : 18) * ctx.fontPx;
+  const table: Record<string, unknown> = {
+    type: 'table', x: g.x, y: g.y, w: g.w, h: Math.max(g.h, rowsH), rotation: g.rot, rows, colWidths: widths.slice(0, cols).map(w => w / total),
+    fontSize, fontFamily: ctx.theme.minorFont, color: ctx.theme.colors.dk1 ?? '#000000',
+    borderStyle: line ? 'solid' : 'none', borderWidth: line ? Math.round(line.width) : 0, borderColor: line?.color ?? '#ffffff',
+    headerRow: false, bandedRows: false, backgroundColor: 'transparent',
+  };
+
+  if (!anyFill && styled) {
+    // No explicit fills: approximate PowerPoint's default "Medium Style 2 – Accent 1"
+    Object.assign(table, {
+      headerRow: firstRow, bandedRows: bandRow, headerFill: accent, headerColor: contrastText(accent),
+      backgroundColor: mixColors('#ffffff', accent, 0.2), bandFill: mixColors('#ffffff', accent, 0.4),
+      borderStyle: 'solid', borderWidth: 1, borderColor: '#ffffff',
+    });
+  } else if (anyFill) {
+    // Explicit fills that follow a header + banded pattern collapse back into table styling
+    const rowFill = rows.map(r => uniform(r.map(c => c.fill)));
+    const body = rowFill.slice(1);
+    if (rowFill.every(f => f !== null) && rows.length > 1) {
+      const header = rowFill[0] !== rowFill[1] || firstRow;
+      const bodyFills = header ? body : rowFill;
+      const a = bodyFills[0], b = bodyFills[1];
+      const alternating = bodyFills.length > 1 && a !== b && bodyFills.every((f, i) => f === (i % 2 ? b : a));
+      const plain = bodyFills.every(f => f === a);
+      if (alternating || plain) {
+        const headerColor = uniform(rows[0].map(c => c.color));
+        const bodyColor = uniform(rows.slice(header ? 1 : 0).flatMap(r => r.map(c => c.color)));
+        Object.assign(table, {
+          headerRow: header, headerFill: header ? rowFill[0] : accent, headerColor: headerColor ?? contrastText(rowFill[0] ?? accent),
+          bandedRows: alternating, backgroundColor: a, bandFill: alternating ? b : a,
+          ...(bodyColor ? { color: bodyColor } : {}),
+        });
+        rows.forEach((r, ri) => r.forEach(c => {
+          delete c.fill;
+          if ((ri === 0 && header && headerColor) || (!(ri === 0 && header) && bodyColor)) delete c.color;
+          if (ri === 0 && header && c.bold) delete c.bold;
+        }));
+      }
+    }
+  }
+  return table;
+}
+
+const CHART_KINDS: Record<string, string> = {
+  barChart: 'column', bar3DChart: 'column', lineChart: 'line', line3DChart: 'line', areaChart: 'area', area3DChart: 'area',
+  pieChart: 'pie', pie3DChart: 'pie', ofPieChart: 'pie', doughnutChart: 'doughnut', radarChart: 'line',
+};
+
+function chartPoints(el: El | null): string[] {
+  const cache = desc(el, 'strCache') ?? desc(el, 'numCache') ?? desc(el, 'multiLvlStrCache') ?? desc(el, 'strLit') ?? desc(el, 'numLit');
+  const count = numAttr(kid(cache, 'ptCount'), 'val') ?? 0;
+  const out: string[] = Array(count).fill('');
+  // Multi-level category caches keep the innermost level first
+  const pts = kids(cache, 'pt').length ? kids(cache, 'pt') : kids(kid(cache, 'lvl'), 'pt');
+  pts.forEach(pt => { out[numAttr(pt, 'idx') ?? 0] = kid(pt, 'v')?.textContent ?? ''; });
+  return out;
+}
+
+async function parseChart(ctx: SlideCtx, rid: string | null, g: Geo): Promise<Record<string, unknown> | null> {
+  const target = rid ? (await ctx.pkg.relsOf(ctx.part)).get(rid)?.target : undefined;
+  const doc = target ? await ctx.pkg.doc(target) : null;
+  const chartEl = desc(doc?.documentElement, 'chart');
+  const plot = desc(chartEl, 'plotArea');
+  const kindEl = [...(plot?.children ?? [])].find(c => CHART_KINDS[c.localName]);
+  if (!kindEl) return null;
+  let chartType = CHART_KINDS[kindEl.localName];
+  if (chartType === 'column' && attr(kid(kindEl, 'barDir'), 'val') === 'bar') chartType = 'bar';
+
+  let categories: string[] = [];
+  const series = kids(kindEl, 'ser').map((ser, i) => {
+    const cats = chartPoints(kid(ser, 'cat'));
+    if (cats.length > categories.length) categories = cats;
+    const values = chartPoints(kid(ser, 'val')).map(v => parseFloat(v) || 0);
+    const spPr = kid(ser, 'spPr');
+    const fill = fillOf(spPr, ctx.colors) ?? fillOf(kid(spPr, 'ln'), ctx.colors);
+    const color = fill?.kind === 'color' ? fill.color : fill?.kind === 'gradient' ? fill.color : ctx.theme.colors[`accent${(i % 6) + 1}`] ?? '#4472c4';
+    return { name: desc(kid(ser, 'tx'), 'v')?.textContent ?? `Series ${i + 1}`, values, color };
+  });
+  if (!series.length) return null;
+  if (!categories.length) categories = series[0].values.map((_, i) => String(i + 1));
+  series.forEach(s => { while (s.values.length < categories.length) s.values.push(0); });
+
+  const titleEl = kid(chartEl, 'title');
+  const titleText = [...(titleEl?.getElementsByTagName('*') ?? [])].filter(e => e.localName === 't').map(t => t.textContent).join('');
+  const autoDeleted = attr(kid(chartEl, 'autoTitleDeleted'), 'val') === '1';
+  const title = titleText || (titleEl && !autoDeleted && series.length === 1 ? series[0].name : '');
+  // Pies color each slice: explicit data points, else theme accents in order (varyColors)
+  let pointColors: string[] | undefined;
+  if (chartType === 'pie' || chartType === 'doughnut') {
+    const ser = kids(kindEl, 'ser')[0];
+    const explicit = new Map(kids(ser, 'dPt').map(pt => {
+      const f = fillOf(kid(pt, 'spPr'), ctx.colors);
+      return [numAttr(kid(pt, 'idx'), 'val') ?? 0, f?.kind === 'color' ? f.color : undefined] as const;
+    }));
+    const vary = attr(kid(kindEl, 'varyColors'), 'val') !== '0';
+    pointColors = categories.map((_, i) => explicit.get(i) ?? (vary ? ctx.theme.colors[`accent${(i % 6) + 1}`] : series[0].color) ?? series[0].color);
+  }
+  const dLbls = desc(kindEl, 'dLbls');
+  const showValues = ['showVal', 'showPercent'].some(k => attr(kid(dLbls, k), 'val') === '1');
+
+  return {
+    type: 'chart', chartType, x: g.x, y: g.y, w: g.w, h: g.h, rotation: g.rot,
+    title, categories, series, showLegend: !!kid(chartEl, 'legend'), showValues, pointColors,
+    fontFamily: ctx.theme.minorFont, color: '#595959',
+  };
+}
+
+/** SmartArt: PowerPoint caches the laid-out shapes in a drawing part; import those */
+async function parseSmartArt(ctx: SlideCtx, relIds: El, frame: NonNullable<ReturnType<typeof readXfrm>>, xf: Xf) {
+  const rels = await ctx.pkg.relsOf(ctx.part);
+  const dataPart = rels.get(relAttr(relIds, 'dm') ?? '')?.target;
+  const dataDoc = dataPart ? await ctx.pkg.doc(dataPart) : null;
+  const ext = [...(dataDoc?.getElementsByTagName('*') ?? [])].find(e => e.localName === 'dataModelExt');
+  let drawingPart = rels.get(attr(ext, 'relId') ?? '')?.target;
+  if (!drawingPart && dataPart) {
+    const n = dataPart.match(/(\d+)\.xml$/)?.[1];
+    drawingPart = [...rels.values()].find(r => r.type === 'diagramDrawing' && r.target.endsWith(`drawing${n}.xml`))?.target;
+  }
+  const drawing = drawingPart ? await ctx.pkg.doc(drawingPart) : null;
+  const tree = desc(drawing?.documentElement, 'spTree');
+  if (!drawingPart || !tree) {
+    ctx.warnings.add('Some SmartArt graphics had no saved drawing and were skipped.');
+    return;
+  }
+  // Drawing coordinates are relative to the graphic frame
+  const inner: Xf = { sx: xf.sx, sy: xf.sy, tx: xf.tx + frame.off[0] * xf.sx, ty: xf.ty + frame.off[1] * xf.sy };
+  await parseTree(tree, inner, { ...ctx, part: drawingPart }, { skipPlaceholders: true, fromLayout: true });
+}
+
 async function parseTree(tree: El | null, xf: Xf, ctx: SlideCtx, opts: { skipPlaceholders?: boolean; fromLayout?: boolean } = {}) {
   if (!tree) return;
   for (const el of tree.children) {
@@ -627,6 +816,10 @@ async function parseTree(tree: El | null, xf: Xf, ctx: SlideCtx, opts: { skipPla
         const rid = relAttr(kid(blipFill, 'blip'), 'embed');
         const x = readXfrm(kid(kid(el, 'spPr'), 'xfrm'));
         if (rid && x) await emitImage(ctx, rid, applyXf(xf, x), 100, kid(blipFill, 'srcRect'));
+        const nvPr = path(el, 'nvPicPr', 'nvPr');
+        if (desc(nvPr, 'videoFile') || desc(nvPr, 'audioFile') || desc(nvPr, 'media')) {
+          ctx.warnings.add('Video and audio clips were imported as their preview image.');
+        }
         break;
       }
       case 'grpSp': {
@@ -645,17 +838,27 @@ async function parseTree(tree: El | null, xf: Xf, ctx: SlideCtx, opts: { skipPla
       }
       case 'graphicFrame': {
         const x = readXfrm(kid(el, 'xfrm'));
+        if (!x) break;
+        const g = applyXf(xf, x);
         const tbl = desc(el, 'tbl');
-        if (x && tbl) {
-          // Tables become a text box: one line per row, cells separated by a gap
-          const rows = kids(tbl, 'tr').map(tr => kids(tr, 'tc').map(tc => (desc(tc, 'txBody')?.textContent ?? '').trim()).join('   ·   '));
-          const g = applyXf(xf, x);
-          ctx.out.push({ type: 'text', x: g.x, y: g.y, w: g.w, h: g.h, fontSize: 14, color: ctx.theme.colors.dk1 ?? '#000000', fontFamily: ctx.theme.minorFont, text: rows.map(r => r.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('<br>') });
-          ctx.warnings.add('Tables were converted to plain text boxes.');
-        } else if (desc(el, 'chart')) {
-          ctx.warnings.add('Charts are not supported yet and were skipped.');
+        const chartRef = desc(el, 'chart');
+        const relIds = desc(el, 'relIds');
+        const ole = desc(el, 'oleObj');
+        if (tbl) {
+          ctx.out.push(parseTable(tbl, g, ctx));
+        } else if (chartRef) {
+          const chart = await parseChart(ctx, relAttr(chartRef, 'id'), g);
+          if (chart) ctx.out.push(chart);
+          else ctx.warnings.add('Some chart types (scatter, bubble, stock…) are not supported yet and were skipped.');
+        } else if (relIds) {
+          await parseSmartArt(ctx, relIds, x, xf);
+        } else if (ole) {
+          // Embedded documents (Excel, Visio…) show their stored preview picture
+          const rid = relAttr(desc(ole, 'blip'), 'embed') ?? relAttr(desc(el, 'imagedata'), 'id');
+          if (rid) await emitImage(ctx, rid, g);
+          else ctx.warnings.add('Some embedded objects had no preview and were skipped.');
         } else {
-          ctx.warnings.add('Some embedded objects (SmartArt, media) were skipped.');
+          ctx.warnings.add('Some embedded objects were skipped.');
         }
         break;
       }

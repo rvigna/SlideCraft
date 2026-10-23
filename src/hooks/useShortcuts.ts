@@ -64,9 +64,12 @@ export function useShortcuts() {
           return;
         case 'Enter': {
           const p = ed.primaryObject();
-          if (p && state.selection.length === 1 && (p.type === 'text' || (p.type === 'shape' && p.shapeType !== 'line'))) {
+          if (p && state.selection.length === 1 && (p.type === 'text' || p.type === 'table' || (p.type === 'shape' && p.shapeType !== 'line'))) {
             e.preventDefault();
             ed.setEditing(p.id);
+          } else if (p?.type === 'chart' && state.selection.length === 1) {
+            e.preventDefault();
+            openDialog('chart');
           }
           return;
         }

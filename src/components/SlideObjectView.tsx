@@ -2,6 +2,8 @@ import { memo, type CSSProperties, type ReactNode } from 'react';
 import type { ShapeObject, ShapeType, Slide, SlideObject } from '../model/types';
 import { ICONS } from '../model/icons';
 import { fontStack } from '../model/fonts';
+import { TableView } from './TableView';
+import { ChartView } from './ChartView';
 
 export const SHADOWS: Record<string, string> = {
   sm: '0 1px 3px rgba(0,0,0,0.15)',
@@ -70,7 +72,10 @@ export function objectBoxStyle(obj: SlideObject): CSSProperties {
   };
   if (obj.rotation) style.transform = `rotate(${obj.rotation}deg)`;
   const svgShape = obj.type === 'shape' && usesSvg(obj.shapeType);
-  if (!svgShape) {
+  if (obj.type === 'table') {
+    // Grid lines and fills are drawn per cell
+    if (obj.shadow !== 'none') style.boxShadow = SHADOWS[obj.shadow];
+  } else if (!svgShape) {
     if (obj.borderStyle !== 'none' && obj.borderWidth > 0) {
       style.border = `${obj.borderWidth}px ${obj.borderStyle} ${obj.borderColor}`;
     }
@@ -122,6 +127,10 @@ export function ObjectContent({ obj, textOverride }: { obj: SlideObject; textOve
           )}
         </>
       );
+    case 'table':
+      return <TableView obj={obj} />;
+    case 'chart':
+      return <ChartView obj={obj} />;
     case 'icon': {
       const Icon = ICONS[obj.icon] ?? ICONS.Star;
       return (

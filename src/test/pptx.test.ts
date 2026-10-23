@@ -3,8 +3,8 @@ import JSZip from 'jszip';
 import { deckToPptxArrayBuffer } from '../io/pptxExport';
 import { pptxToDeck } from '../io/pptxImport';
 import { iconSvg } from '../io/raster';
-import { createDeck, createIconObject, createShapeObject, createTextObject, IdSource, normalizeDeck } from '../model/factory';
-import type { Deck, TextObject } from '../model/types';
+import { createChartObject, createDeck, createIconObject, createShapeObject, createTableObject, createTextObject, IdSource, normalizeDeck } from '../model/factory';
+import type { ChartObject, Deck, TableObject, TextObject } from '../model/types';
 
 function sampleDeck(): Deck {
   const deck = createDeck('Carbon');
@@ -100,6 +100,75 @@ describe('PPTX export → import round trip', () => {
     const deck = normalizeDeck((await pptxToDeck(await deckToPptxArrayBuffer(src))).deck);
     const back = deck.slides[1].objects.find((o): o is TextObject => o.type === 'text' && o.text.includes('Nested'))!;
     expect(back.text).toBe('<ul><li>Top<ul><li>Nested</li></ul></li></ul>');
+  });
+
+  it('round-trips tables with header and banded styling', async () => {
+    const src = sampleDeck();
+    const ids = new IdSource(src.nextObjectId);
+    const table = createTableObject(ids, 4, 3, { headerFill: '#0f62fe', headerColor: '#ffffff', bandFill: '#e5f0ff', backgroundColor: '#ffffff' });
+    table.rows[1][0].text = 'Revenue';
+    table.rows[1][1].text = '12%';
+    src.slides[0].objects.push(table);
+    src.nextObjectId = ids.next;
+    const deck = normalizeDeck((await pptxToDeck(await deckToPptxArrayBuffer(src))).deck);
+    const back = deck.slides[0].objects.find((o): o is TableObject => o.type === 'table')!;
+    expect(back.rows).toHaveLength(4);
+    expect(back.colWidths).toHaveLength(3);
+    expect(back.rows[0][0].text).toBe('Header 1');
+    expect(back.rows[1].map(c => c.text)).toEqual(['Revenue', '12%', '']);
+    expect(back.headerRow).toBe(true);
+    expect(back.headerFill.toLowerCase()).toBe('#0f62fe');
+    expect(back.bandedRows).toBe(true);
+    expect(back.bandFill.toLowerCase()).toBe('#e5f0ff');
+    expect(back.rows.flat().every(c => c.fill === undefined)).toBe(true);
+  });
+
+  it('round-trips charts as native PowerPoint charts', async () => {
+    const src = sampleDeck();
+    const ids = new IdSource(src.nextObjectId);
+    src.slides[0].objects.push(createChartObject(ids, 'bar', { title: 'Sales' }), createChartObject(ids, 'doughnut', { title: '' }));
+    src.nextObjectId = ids.next;
+    const buf = await deckToPptxArrayBuffer(src);
+    const zip = await JSZip.loadAsync(buf);
+    expect(Object.keys(zip.files).some(f => /ppt\/charts\/chart\d+\.xml$/.test(f))).toBe(true);
+    const deck = normalizeDeck((await pptxToDeck(buf)).deck);
+    const charts = deck.slides[0].objects.filter((o): o is ChartObject => o.type === 'chart');
+    expect(charts.map(c => c.chartType)).toEqual(['bar', 'doughnut']);
+    expect(charts[0].title).toBe('Sales');
+    expect(charts[0].categories).toEqual(['Q1', 'Q2', 'Q3', 'Q4']);
+    expect(charts[0].series.map(s => s.name)).toEqual(['2025', '2026']);
+    expect(charts[0].series[1].values).toEqual([16, 23, 20, 28]);
+    expect(charts[0].series[0].color.toLowerCase()).toBe('#0f62fe');
+  });
+
+  it('imports SmartArt from its cached drawing, positioned inside the frame', async () => {
+    const deck = createDeck();
+    deck.slides[0].objects = [];
+    const zip = await JSZip.loadAsync(await deckToPptxArrayBuffer(deck));
+    const slidePath = 'ppt/slides/slide1.xml';
+    const frame = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Diagram"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>' +
+      '<p:xfrm><a:off x="914400" y="914400"/><a:ext cx="4572000" cy="2286000"/></p:xfrm><a:graphic>' +
+      '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/diagram">' +
+      '<dgm:relIds xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" r:dm="rIdDm" r:lo="rIdDm" r:qs="rIdDm" r:cs="rIdDm"/>' +
+      '</a:graphicData></a:graphic></p:graphicFrame>';
+    const slideXml = (await zip.file(slidePath)!.async('string')).replace('</p:spTree>', frame + '</p:spTree>');
+    zip.file(slidePath, slideXml);
+    const relsPath = 'ppt/slides/_rels/slide1.xml.rels';
+    zip.file(relsPath, (await zip.file(relsPath)!.async('string')).replace('</Relationships>',
+      '<Relationship Id="rIdDm" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData" Target="../diagrams/data1.xml"/>' +
+      '<Relationship Id="rIdDraw" Type="http://schemas.microsoft.com/office/2007/relationships/diagramDrawing" Target="../diagrams/drawing1.xml"/></Relationships>'));
+    zip.file('ppt/diagrams/data1.xml', '<dgm:dataModel xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+      '<dgm:extLst><a:ext uri="x"><dsp:dataModelExt xmlns:dsp="http://schemas.microsoft.com/office/drawing/2008/diagram" relId="rIdDraw"/></a:ext></dgm:extLst></dgm:dataModel>');
+    zip.file('ppt/diagrams/drawing1.xml', '<dsp:drawing xmlns:dsp="http://schemas.microsoft.com/office/drawing/2008/diagram" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+      '<dsp:spTree><dsp:nvGrpSpPr/><dsp:grpSpPr/><dsp:sp><dsp:nvSpPr><dsp:cNvPr id="0" name=""/><dsp:cNvSpPr/></dsp:nvSpPr>' +
+      '<dsp:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1828800" cy="914400"/></a:xfrm><a:prstGeom prst="chevron"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="0F62FE"/></a:solidFill></dsp:spPr><dsp:txBody><a:bodyPr/><a:p><a:r><a:t>Plan</a:t></a:r></a:p></dsp:txBody></dsp:sp></dsp:spTree></dsp:drawing>');
+    const { deck: raw, warnings } = await pptxToDeck(await zip.generateAsync({ type: 'arraybuffer' }));
+    const objs = normalizeDeck(raw).slides[0].objects;
+    const plan = objs.find(o => o.type === 'text' && o.text.includes('Plan'))!;
+    expect(warnings).toEqual([]);
+    expect([plan.x, plan.y, plan.w, plan.h]).toEqual([96, 96, 192, 96]); // 1in offset, 2in × 1in at 96px/in
+    expect(plan.backgroundColor.toLowerCase()).toBe('#0f62fe');
   });
 
   it('rejects files that are not presentations', async () => {

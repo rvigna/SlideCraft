@@ -11,6 +11,8 @@ import { ObjectContent, objectBoxStyle, slideBackground, textStyle } from './Sli
 import { insertImageFiles } from '../io/images';
 import { openContextMenu } from './ContextMenu';
 import { canvasMenuItems } from './menus';
+import { TableView, focusCellOnEdit } from './TableView';
+import { openDialog } from '../store/ui';
 
 const HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const DRAG_THRESHOLD = 3;
@@ -92,14 +94,16 @@ function EditableText({ obj }: { obj: Extract<SlideObject, { type: 'text' | 'sha
 }
 
 function EditorObject({ obj, selected, showHandles, editing }: { obj: SlideObject; selected: boolean; showHandles: boolean; editing: boolean }) {
-  const editable = editing && (obj.type === 'text' || obj.type === 'shape');
+  const editable = editing && (obj.type === 'text' || obj.type === 'shape' || obj.type === 'table');
   return (
     <div
       className={`slide-object${selected ? ' selected' : ''}${editable ? ' editing' : ''}`}
       data-id={obj.id}
       style={objectBoxStyle(obj)}
     >
-      {editable && obj.type === 'shape' ? (
+      {editable && obj.type === 'table' ? (
+        <TableView obj={obj} editing />
+      ) : editable && obj.type === 'shape' ? (
         <>
           <ObjectContent obj={{ ...obj, text: '' }} />
           <EditableText obj={obj} />
@@ -293,9 +297,16 @@ export function Canvas() {
     if (!objEl) return;
     const obj = currentSlide().objects.find(o => o.id === Number(objEl.dataset.id));
     if (!obj) return;
-    if (obj.type === 'text' || (obj.type === 'shape' && obj.shapeType !== 'line')) {
+    if (obj.type === 'text' || obj.type === 'table' || (obj.type === 'shape' && obj.shapeType !== 'line')) {
+      if (obj.type === 'table') {
+        const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]')?.dataset.cell?.split(',').map(Number);
+        if (cell) focusCellOnEdit(cell[0], cell[1]);
+      }
       select([obj.id]);
       setEditing(obj.id);
+    } else if (obj.type === 'chart') {
+      select([obj.id]);
+      openDialog('chart');
     } else if (obj.type === 'image') {
       window.dispatchEvent(new CustomEvent('slidecraft:replace-image', { detail: obj.id }));
     }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Button, Checkbox, ClickableTile, Modal, TextInput } from '@carbon/react';
+import { Button, Checkbox, ClickableTile, Modal, Select, SelectItem, TextInput } from '@carbon/react';
+import { ChartView } from '../ChartView';
+import { seriesColor } from '../../model/palette';
 import { Upload } from '@carbon/icons-react';
 import { closeDialog, useUi } from '../../store/ui';
 import * as ed from '../../store/editor';
@@ -7,7 +9,7 @@ import { createBlankSlide, createDeck, IdSource } from '../../model/factory';
 import { LAYOUTS } from '../../model/layouts';
 import { applyThemeToSlide, THEMES } from '../../model/themes';
 import { createTextObject, createShapeObject } from '../../model/factory';
-import type { Slide } from '../../model/types';
+import type { ChartObject, ChartType, Slide } from '../../model/types';
 import { SlideStage } from '../SlideObjectView';
 import { insertImage, pickFile, readFileAsDataURL } from '../../io/images';
 import { MOD, SHIFT, ALT } from '../menus';
@@ -198,6 +200,92 @@ function AboutDialog() {
   );
 }
 
+const CHART_TYPES: { value: ChartType; label: string }[] = [
+  { value: 'column', label: 'Column' }, { value: 'bar', label: 'Bar' }, { value: 'line', label: 'Line' },
+  { value: 'area', label: 'Area' }, { value: 'pie', label: 'Pie' }, { value: 'doughnut', label: 'Doughnut' },
+];
+
+function ChartDialog() {
+  const chart = ed.useEditor(s => ed.primaryObject(s));
+  const [draft, setDraft] = useState(() => (chart?.type === 'chart' ? JSON.parse(JSON.stringify(chart)) as ChartObject : null));
+  if (!draft || chart?.type !== 'chart') return null;
+  const update = (fn: (d: ChartObject) => void) => setDraft(d => { const copy = JSON.parse(JSON.stringify(d)) as ChartObject; fn(copy); return copy; });
+  const isPie = draft.chartType === 'pie' || draft.chartType === 'doughnut';
+
+  return (
+    <Modal
+      open size="lg"
+      modalHeading="Edit chart"
+      primaryButtonText="Apply"
+      secondaryButtonText="Cancel"
+      onRequestClose={closeDialog}
+      onRequestSubmit={() => {
+        const id = chart.id;
+        ed.commitSlide(slide => {
+          const i = slide.objects.findIndex(o => o.id === id);
+          if (i >= 0) slide.objects[i] = { ...draft, id, x: slide.objects[i].x, y: slide.objects[i].y, w: slide.objects[i].w, h: slide.objects[i].h };
+        });
+        closeDialog();
+      }}
+    >
+      <div className="sc-chart-dialog">
+        <div className="sc-chart-editor">
+          <div className="sc-chart-options">
+            <Select id="sc-chart-type" size="sm" labelText="Chart type" value={draft.chartType} onChange={e => update(d => { d.chartType = e.target.value as ChartType; })}>
+              {CHART_TYPES.map(t => <SelectItem key={t.value} value={t.value} text={t.label} />)}
+            </Select>
+            <TextInput id="sc-chart-title" size="sm" labelText="Title" value={draft.title} onChange={e => update(d => { d.title = e.target.value; })} />
+          </div>
+          <div className="sc-chart-options">
+            <Checkbox id="sc-chart-legend" labelText="Show legend" checked={draft.showLegend} onChange={(_, { checked }) => update(d => { d.showLegend = checked; })} />
+            <Checkbox id="sc-chart-values" labelText={isPie ? 'Show percentages' : 'Show values'} checked={draft.showValues} onChange={(_, { checked }) => update(d => { d.showValues = checked; })} />
+          </div>
+          <div className="sc-data-grid-wrap">
+            <table className="sc-data-grid">
+              <thead>
+                <tr>
+                  <th />
+                  {draft.series.map((s, si) => (
+                    <th key={si}>
+                      <span className="sc-data-series">
+                        <input type="color" aria-label={`Color of ${s.name}`} value={'#' + toHex6(s.color).toLowerCase()} onChange={e => update(d => { d.series[si].color = e.target.value; })} />
+                        <input className="cds--text-input cds--text-input--sm" aria-label="Series name" value={s.name} onChange={e => update(d => { d.series[si].name = e.target.value; })} />
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {draft.categories.map((cat, ci) => (
+                  <tr key={ci}>
+                    <th><input className="cds--text-input cds--text-input--sm" aria-label="Category" value={cat} onChange={e => update(d => { d.categories[ci] = e.target.value; })} /></th>
+                    {draft.series.map((s, si) => (
+                      <td key={si}>
+                        <input className="cds--text-input cds--text-input--sm" type="number" aria-label={`${s.name} ${cat}`} value={Number.isFinite(s.values[ci]) ? s.values[ci] : 0}
+                          onChange={e => update(d => { d.series[si].values[ci] = parseFloat(e.target.value) || 0; })} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sc-dialog-row">
+            <Button kind="ghost" size="sm" onClick={() => update(d => { d.categories.push(`Item ${d.categories.length + 1}`); d.series.forEach(s => s.values.push(0)); })}>Add row</Button>
+            <Button kind="ghost" size="sm" disabled={draft.categories.length <= 1} onClick={() => update(d => { d.categories.pop(); d.series.forEach(s => s.values.pop()); })}>Remove row</Button>
+            <Button kind="ghost" size="sm" onClick={() => update(d => { d.series.push({ name: `Series ${d.series.length + 1}`, values: d.categories.map(() => 0), color: seriesColor(d.series.length, d.series[0]?.color) }); })}>Add series</Button>
+            <Button kind="ghost" size="sm" disabled={draft.series.length <= 1} onClick={() => update(d => { d.series.pop(); })}>Remove series</Button>
+          </div>
+          {isPie && draft.series.length > 1 && <p className="sc-dialog-hint">Pie and doughnut charts show the first series only.</p>}
+        </div>
+        <div className="sc-chart-preview" style={{ width: 360, height: 360 * draft.h / draft.w }}>
+          <ChartView obj={{ ...draft, w: draft.w, h: draft.h }} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function NewDialog() {
   return (
     <Modal
@@ -236,6 +324,7 @@ export function Dialogs() {
     case 'shortcuts': return <ShortcutsDialog />;
     case 'about': return <AboutDialog />;
     case 'new': return <NewDialog />;
+    case 'chart': return <ChartDialog />;
     default: return null;
   }
 }

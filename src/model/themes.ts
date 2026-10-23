@@ -1,4 +1,5 @@
 import type { Slide } from './types';
+import { CHART_PALETTE, tableColors } from './palette';
 
 export interface DeckTheme {
   name: string;
@@ -50,6 +51,16 @@ export function applyThemeToSlide(slide: Slide, t: DeckTheme, previous?: DeckThe
       obj.fontFamily = t.bodyFont;
     } else if (obj.type === 'icon') {
       obj.color = isSection ? t.sectionText : t.accent;
+    } else if (obj.type === 'table') {
+      Object.assign(obj, tableColors(t.accent, t.bg));
+      obj.fontFamily = t.bodyFont;
+      obj.color = t.body;
+      obj.rows.forEach(row => row.forEach(cell => { delete cell.fill; delete cell.color; }));
+    } else if (obj.type === 'chart') {
+      obj.fontFamily = t.bodyFont;
+      obj.color = t.body;
+      obj.series.forEach((s, i) => { s.color = i === 0 ? t.accent : CHART_PALETTE[(i - 1) % CHART_PALETTE.length]; });
+      delete obj.pointColors;
     }
   });
 }

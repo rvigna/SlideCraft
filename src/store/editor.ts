@@ -36,6 +36,8 @@ const COALESCE_MS = 1500;
 let coalesceKey: string | null = null;
 let coalesceAt = 0;
 let gestureBase: HistoryEntry | null = null;
+let batchDepth = 0;
+let batchBase: HistoryEntry | null = null;
 let clipboard: ClipboardData | null = null;
 let pasteCount = 0;
 let toastId = 1;
@@ -104,7 +106,8 @@ export function commit(recipe: Recipe, opts: { coalesce?: string; slideIndex?: n
   const next = runRecipe(s.deck, recipe);
   if (next === s.deck) return;
   const now = Date.now();
-  const merge = !!opts.coalesce && opts.coalesce === coalesceKey && now - coalesceAt < COALESCE_MS;
+  // Inside batch() the whole run becomes one undo step, recorded when the batch ends
+  const merge = batchDepth > 0 || (!!opts.coalesce && opts.coalesce === coalesceKey && now - coalesceAt < COALESCE_MS);
   coalesceKey = opts.coalesce ?? null;
   coalesceAt = now;
   const slideIndex = Math.min(opts.slideIndex ?? s.slideIndex, next.slides.length - 1);
@@ -132,6 +135,25 @@ export function commitSelection(fn: (o: Draft<SlideObject>) => void, filter: (o:
 }
 
 export function endCoalesce() { coalesceKey = null; }
+
+/** Run several changes as a single undo step (used by the automation API) */
+export function batch<T>(fn: () => T): T {
+  if (batchDepth === 0) {
+    const s = get();
+    batchBase = { deck: s.deck, slideIndex: s.slideIndex };
+  }
+  batchDepth++;
+  try {
+    return fn();
+  } finally {
+    batchDepth--;
+    if (batchDepth === 0 && batchBase) {
+      const s = get();
+      if (s.deck !== batchBase.deck) set({ past: [...s.past, batchBase].slice(-HISTORY_LIMIT), future: [], dirty: true });
+      batchBase = null;
+    }
+  }
+}
 
 /** Start a drag/resize/rotate: intermediate states skip history until endGesture() */
 export function beginGesture() {

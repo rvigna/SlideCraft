@@ -1,13 +1,16 @@
-import { Button, IconButton, Select, SelectItem, Slider, TextArea } from '@carbon/react';
+import { Button, Checkbox, IconButton, Select, SelectItem, Slider, TextArea } from '@carbon/react';
+import { Add, ChartBar, Subtract } from '@carbon/icons-react';
+import { addTableColumn, addTableRow, removeTableColumn, removeTableRow } from './objectOps';
+import { contrastText } from '../model/color';
 import {
   AlignHorizontalCenter, AlignHorizontalLeft, AlignHorizontalRight, AlignVerticalBottom, AlignVerticalCenter,
   AlignVerticalTop, ColorPalette, DistributeHorizontalCenter, DistributeVerticalCenter, Image as ImageIcon, Template,
 } from '@carbon/icons-react';
-import type { BorderStyle, ObjectFit, Shadow, Transition, VerticalAlign } from '../model/types';
+import type { BorderStyle, ChartType, ObjectFit, Shadow, Transition, VerticalAlign } from '../model/types';
 import * as ed from '../store/editor';
 import { endCoalesce } from '../store/editor';
 import { openDialog } from '../store/ui';
-import { NumField } from './fields';
+import { ColorButton, NumField } from './fields';
 import { formatSelection, styleSelection } from './formatting';
 import type { AlignMode } from '../model/geometry';
 
@@ -53,7 +56,7 @@ function ObjectProperties() {
       if (o) o[key] = key === 'rotation' ? ((Math.round(v) % 360) + 360) % 360 : key === 'w' || key === 'h' ? Math.max(4, Math.round(v)) : Math.round(v);
     });
   };
-  const typeLabel = { text: 'Text box', shape: 'Shape', image: 'Image', icon: 'Icon' }[obj.type];
+  const typeLabel = { text: 'Text box', shape: 'Shape', image: 'Image', icon: 'Icon', table: 'Table', chart: 'Chart' }[obj.type];
 
   return (
     <>
@@ -107,6 +110,45 @@ function ObjectProperties() {
             </Select>
             <NumField label="Line height" value={obj.lineHeight} min={0.8} max={3} step={0.1} onCommit={v => formatSelection({ lineHeight: v })} />
           </div>
+        </Section>
+      )}
+
+      {obj.type === 'table' && (
+        <Section title="Table" aside={<span className="sc-prop-badge">{obj.rows.length} × {obj.colWidths.length}</span>}>
+          <div className="sc-prop-grid">
+            <Button kind="tertiary" size="sm" renderIcon={Add} onClick={addTableRow}>Row</Button>
+            <Button kind="tertiary" size="sm" renderIcon={Subtract} disabled={obj.rows.length <= 1} onClick={removeTableRow}>Row</Button>
+            <Button kind="tertiary" size="sm" renderIcon={Add} onClick={addTableColumn}>Column</Button>
+            <Button kind="tertiary" size="sm" renderIcon={Subtract} disabled={obj.colWidths.length <= 1} onClick={removeTableColumn}>Column</Button>
+          </div>
+          <Checkbox id="sc-table-header" labelText="Header row" checked={obj.headerRow}
+            onChange={(_, { checked }) => ed.commitSelection(o => { if (o.type === 'table') o.headerRow = checked; })} />
+          <Checkbox id="sc-table-bands" labelText="Banded rows" checked={obj.bandedRows}
+            onChange={(_, { checked }) => ed.commitSelection(o => { if (o.type === 'table') o.bandedRows = checked; })} />
+          <div className="sc-prop-colors">
+            <ColorButton label="Header fill" icon={<span className="sc-color-label">Header</span>} value={obj.headerFill}
+              onPick={c => ed.commitSelection(o => { if (o.type === 'table') { o.headerFill = c; o.headerColor = contrastText(c); } }, undefined, { coalesce: 'table-header' })} />
+            <ColorButton label="Band fill" icon={<span className="sc-color-label">Bands</span>} value={obj.bandFill}
+              onPick={c => ed.commitSelection(o => { if (o.type === 'table') o.bandFill = c; }, undefined, { coalesce: 'table-band' })} />
+          </div>
+          <Button kind="ghost" size="sm" onClick={() => ed.setEditing(obj.id)}>Edit cells (Enter)</Button>
+        </Section>
+      )}
+
+      {obj.type === 'chart' && (
+        <Section title="Chart">
+          <div className="sc-prop-grid">
+            <Select id="sc-chart-kind" size="sm" labelText="Type" value={obj.chartType}
+              onChange={e => ed.commitSelection(o => { if (o.type === 'chart') o.chartType = e.target.value as ChartType; })}>
+              <SelectItem value="column" text="Column" /><SelectItem value="bar" text="Bar" /><SelectItem value="line" text="Line" />
+              <SelectItem value="area" text="Area" /><SelectItem value="pie" text="Pie" /><SelectItem value="doughnut" text="Doughnut" />
+            </Select>
+            <Button kind="tertiary" size="sm" renderIcon={ChartBar} onClick={() => openDialog('chart')}>Edit data</Button>
+          </div>
+          <Checkbox id="sc-chart-legend-p" labelText="Legend" checked={obj.showLegend}
+            onChange={(_, { checked }) => ed.commitSelection(o => { if (o.type === 'chart') o.showLegend = checked; })} />
+          <Checkbox id="sc-chart-values-p" labelText="Data labels" checked={obj.showValues}
+            onChange={(_, { checked }) => ed.commitSelection(o => { if (o.type === 'chart') o.showValues = checked; })} />
         </Section>
       )}
 

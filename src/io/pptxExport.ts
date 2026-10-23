@@ -6,6 +6,8 @@ import { SLIDE_W } from '../model/types';
 import { alphaOf, toHex6 } from '../model/color';
 import { htmlToParagraphs } from '../model/richtext';
 import { fitImage, iconPng, rasterizeGradient } from './raster';
+import { cellStyle } from '../model/table';
+import { sliceColor } from '../model/palette';
 
 // 960 px ⇄ 10 in, so 1 px = 1/96 in = 0.75 pt
 const IN = (px: number) => +(px / 96).toFixed(4);
@@ -156,6 +158,54 @@ async function addObject(pptx: PptxGenJS, ps: PptxGenJS.Slide, o: SlideObject, w
       const data = await fitImage(o.src, o.w, o.h, o.objectFit);
       if (!data) { warnings.push('An image could not be embedded (it may block cross-origin access).'); break; }
       ps.addImage({ ...box(o), data: pptxData(data), transparency: o.opacity < 100 ? 100 - o.opacity : undefined, shadow });
+      break;
+    }
+    case 'table': {
+      const border: PptxGenJS.BorderProps = o.borderStyle !== 'none' && o.borderWidth > 0
+        ? { type: o.borderStyle === 'solid' ? 'solid' : 'dash', pt: PT(o.borderWidth), color: toHex6(o.borderColor) }
+        : { type: 'none' };
+      const rows: PptxGenJS.TableRow[] = o.rows.map((row, r) => row.map(cell => {
+        const st = cellStyle(o, r, cell);
+        return {
+          text: cell.text,
+          options: {
+            fill: st.fill ? { color: toHex6(st.fill) } : undefined,
+            color: toHex6(st.color),
+            bold: st.bold || undefined,
+            align: st.align,
+          },
+        };
+      }));
+      ps.addTable(rows, {
+        x: IN(o.x), y: IN(o.y), w: IN(o.w), h: IN(o.h),
+        colW: o.colWidths.map(cw => IN(cw * o.w)),
+        rowH: o.rows.map(() => IN(o.h / o.rows.length)),
+        fontFace: o.fontFamily, fontSize: PT(o.fontSize), valign: 'middle',
+        border, margin: [3, 7, 3, 7],
+        italic: o.fontStyle === 'italic' || undefined,
+      });
+      break;
+    }
+    case 'chart': {
+      const isPie = o.chartType === 'pie' || o.chartType === 'doughnut';
+      const kind = { column: 'bar', bar: 'bar', line: 'line', area: 'area', pie: 'pie', doughnut: 'doughnut' }[o.chartType];
+      const data = (isPie ? o.series.slice(0, 1) : o.series).map(s => ({ name: s.name, labels: o.categories, values: s.values }));
+      const textColor = toHex6(o.color);
+      const fs = PT(Math.max(10, Math.min(18, Math.min(o.w, o.h) / 22)));
+      ps.addChart(kind as PptxGenJS.CHART_NAME, data, {
+        ...box(o),
+        chartColors: isPie ? o.categories.map((_, i) => toHex6(sliceColor(o, i))) : o.series.map(s => toHex6(s.color)),
+        showTitle: !!o.title, title: o.title || undefined, titleFontFace: o.fontFamily, titleFontSize: +(fs * 1.25).toFixed(1), titleColor: textColor,
+        showLegend: o.showLegend, legendPos: 'b', legendFontFace: o.fontFamily, legendFontSize: fs, legendColor: textColor,
+        showValue: o.showValues && !isPie, showPercent: o.showValues && isPie,
+        dataLabelColor: isPie ? 'FFFFFF' : textColor, dataLabelFontSize: fs * 0.85,
+        barDir: o.chartType === 'bar' ? 'bar' : 'col', barGrouping: 'clustered',
+        holeSize: o.chartType === 'doughnut' ? 55 : undefined,
+        catAxisLabelColor: textColor, catAxisLabelFontFace: o.fontFamily, catAxisLabelFontSize: fs,
+        valAxisLabelColor: textColor, valAxisLabelFontFace: o.fontFamily, valAxisLabelFontSize: fs,
+        valGridLine: { color: 'E0E0E0', size: 0.75 },
+        lineDataSymbol: 'circle', lineSize: 2,
+      } as PptxGenJS.IChartOpts);
       break;
     }
     case 'icon': {

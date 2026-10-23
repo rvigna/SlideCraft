@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type DialogName = 'image' | 'background' | 'layout' | 'theme' | 'shortcuts' | 'about' | 'new' | null;
+export type DialogName = 'image' | 'background' | 'layout' | 'theme' | 'shortcuts' | 'about' | 'new' | 'chart' | null;
 
 export interface MenuDef {
   label: string;

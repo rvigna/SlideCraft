@@ -188,6 +188,22 @@ body { background: $background; }
   .cds--select-input__wrapper, .cds--select { width: 100%; }
 }
 .sc-span-2 { grid-column: span 2; }
+.sc-prop-colors { display: flex; gap: $spacing-05; .sc-color-btn { width: auto; padding: 0 $spacing-03; height: 40px; } }
+.sc-color-label { @include type-style('label-01'); color: $text-secondary; }
+
+// Chart data editor
+.sc-chart-dialog { display: flex; gap: $spacing-06; flex-wrap: wrap; align-items: flex-start; }
+.sc-chart-editor { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: $spacing-04; }
+.sc-chart-options { display: flex; gap: $spacing-05; align-items: flex-end; > * { flex: 1; } }
+.sc-chart-preview { flex-shrink: 0; background: #fff; box-shadow: 0 0 0 1px $border-subtle-01; padding: $spacing-03; box-sizing: content-box; }
+.sc-data-grid-wrap { overflow: auto; max-height: 320px; }
+.sc-data-grid {
+  border-collapse: collapse;
+  th, td { padding: 2px; }
+  input.cds--text-input { min-width: 72px; width: 100%; }
+  thead th input.cds--text-input { font-weight: 600; }
+}
+.sc-data-series { display: flex; align-items: center; gap: 4px; input[type='color'] { width: 24px; height: 24px; border: 0; padding: 0; background: none; cursor: pointer; flex-shrink: 0; } }
 .sc-prop-stack { display: flex; flex-direction: column; gap: $spacing-03; .cds--btn { max-width: none; width: 100%; } }
 .sc-align-row { display: flex; justify-content: space-between; margin: (-$spacing-02) (-$spacing-03); }
 .sc-properties .cds--slider-container { width: 100%; }

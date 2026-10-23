@@ -73,6 +73,21 @@ export function gradientAngle(css: string): number {
   return dir ? map[dir[1].trim()] ?? 180 : 180;
 }
 
+/** Blend two colors; t=0 gives a, t=1 gives b. Gradients use their first stop. */
+export function mixColors(a: string, b: string, t: number): string {
+  const ca = parseColor(/gradient/i.test(a) ? gradientStops(a)[0]?.color : a) ?? { r: 255, g: 255, b: 255, a: 1 };
+  const cb = parseColor(/gradient/i.test(b) ? gradientStops(b)[0]?.color : b) ?? { r: 255, g: 255, b: 255, a: 1 };
+  return rgbaToCss({ r: ca.r + (cb.r - ca.r) * t, g: ca.g + (cb.g - ca.g) * t, b: ca.b + (cb.b - ca.b) * t, a: 1 });
+}
+
+/** Black or white, whichever reads better on `bg` */
+export function contrastText(bg: string): string {
+  const c = parseColor(/gradient/i.test(bg) ? gradientStops(bg)[0]?.color : bg);
+  if (!c) return '#161616';
+  const lum = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255;
+  return lum > 0.6 ? '#161616' : '#ffffff';
+}
+
 // ---- HSL helpers for DrawingML lumMod/lumOff/tint/shade ----
 export function rgbToHsl({ r, g, b }: Rgba): [number, number, number] {
   r /= 255; g /= 255; b /= 255;

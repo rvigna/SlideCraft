@@ -3,8 +3,9 @@ import { IconButton, Popover, PopoverContent, Search, Select, SelectItem } from 
 import {
   AlignBoxMiddleCenter, BringToFront, ColorPalette, ColorSwitch, Image, Idea, ListBulleted, ListNumbered, PaintBrush,
   Redo, SendToBack, Shapes, Subtract, Add, TextAlignCenter, TextAlignLeft, TextAlignRight, TextBold, TextColor,
-  TextFont, TextItalic, TextStrikethrough, TextUnderline, Template, TrashCan, Undo, BorderFull,
+  TextFont, TextItalic, TextStrikethrough, TextUnderline, Template, TrashCan, Undo, BorderFull, DataTable, ChartColumn,
 } from '@carbon/icons-react';
+import { insertChart, insertTable } from './objectOps';
 import type { ShapeType } from '../model/types';
 import { isTextual } from '../model/types';
 import { createShapeObject, createIconObject, createTextObject } from '../model/factory';
@@ -139,6 +140,8 @@ export function Toolbar() {
       <IconButton kind="ghost" size="sm" label="Insert image" onClick={() => openDialog('image')}><Image /></IconButton>
       <InsertPicker kind="shape" open={picker === 'shape'} setOpen={v => setPicker(v ? 'shape' : null)} />
       <InsertPicker kind="icon" open={picker === 'icon'} setOpen={v => setPicker(v ? 'icon' : null)} />
+      <IconButton kind="ghost" size="sm" label="Insert table" onClick={() => insertTable()}><DataTable /></IconButton>
+      <IconButton kind="ghost" size="sm" label="Insert chart" onClick={() => insertChart()}><ChartColumn /></IconButton>
       <Sep />
       <Select
         id="sc-font-family" className="sc-font-select" size="sm" labelText="Font" hideLabel inline

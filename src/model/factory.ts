@@ -1,6 +1,8 @@
 import type {
-  Deck, IconObject, ImageObject, ShapeObject, ShapeType, Slide, SlideObject, TextObject, TextStyle,
+  ChartObject, ChartSeries, ChartType, Deck, IconObject, ImageObject, ShapeObject, ShapeType, Slide, SlideObject,
+  TableCell, TableObject, TextObject, TextStyle,
 } from './types';
+import { seriesColor, tableColors } from './palette';
 import { getTheme, type DeckTheme } from './themes';
 import { resolveIconName } from './icons';
 
@@ -71,6 +73,42 @@ export function createIconObject(ids: IdSource, icon: string, overrides: Partial
   return { id: ids.take(), type: 'icon', x: 440, y: 230, w: 80, h: 80, ...baseBox, icon, color: '#0f62fe', ...overrides };
 }
 
+export function createTableObject(ids: IdSource, rows = 3, cols = 3, overrides: Partial<TableObject> = {}): TableObject {
+  const cells: TableCell[][] = Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: cols }, (_, c) => ({ text: r === 0 ? `Header ${c + 1}` : '' })));
+  return {
+    id: ids.take(), type: 'table', x: 120, y: 150, w: 720, h: 40 * rows + 20,
+    ...baseBox, ...baseText,
+    fontSize: 18, borderStyle: 'solid', borderWidth: 1, borderColor: '#c6c6c6',
+    rows: cells,
+    colWidths: Array(cols).fill(1 / cols),
+    headerRow: true,
+    bandedRows: true,
+    ...tableColors('#0f62fe', '#ffffff'),
+    ...overrides,
+  };
+}
+
+export function createChartObject(ids: IdSource, chartType: ChartType = 'column', overrides: Partial<ChartObject> = {}): ChartObject {
+  const accent = overrides.series?.[0]?.color;
+  const series: ChartSeries[] = [
+    { name: '2025', values: [12, 19, 15, 22], color: seriesColor(0, accent ?? '#0f62fe') },
+    { name: '2026', values: [16, 23, 20, 28], color: seriesColor(1, accent ?? '#0f62fe') },
+  ];
+  return {
+    id: ids.take(), type: 'chart', chartType, x: 180, y: 110, w: 600, h: 340,
+    ...baseBox,
+    title: 'Revenue by quarter',
+    categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+    series,
+    showLegend: true,
+    showValues: false,
+    fontFamily: 'IBM Plex Sans',
+    color: '#525252',
+    ...overrides,
+  };
+}
+
 export function createTitleSlide(ids: IdSource, t: DeckTheme): Slide {
   const slide = createBlankSlide(t);
   slide.objects.push(
@@ -121,6 +159,25 @@ function normalizeObject(raw: Loose, ids: IdSource): SlideObject | null {
     case 'image':
       if (!raw.src) return null;
       return createImageObject(ids, String(raw.src), { ...(base as Partial<ImageObject>), ...shared });
+    case 'table': {
+      const rows = Array.isArray(raw.rows) ? (raw.rows as TableCell[][]).filter(Array.isArray) : [];
+      if (!rows.length) return null;
+      const cols = Math.max(...rows.map(r => r.length));
+      const grid = rows.map(r => Array.from({ length: cols }, (_, c) => ({ ...(r[c] ?? {}), text: String(r[c]?.text ?? '') })));
+      const widths = Array.isArray(raw.colWidths) && raw.colWidths.length === cols ? (raw.colWidths as number[]) : Array(cols).fill(1 / cols);
+      const sum = widths.reduce((a, b) => a + b, 0) || 1;
+      return createTableObject(ids, grid.length, cols, { ...(base as Partial<TableObject>), ...shared, rows: grid, colWidths: widths.map(w => w / sum), fontSize: num(raw.fontSize, 18) });
+    }
+    case 'chart': {
+      const categories = Array.isArray(raw.categories) ? (raw.categories as unknown[]).map(String) : [];
+      const series = (Array.isArray(raw.series) ? (raw.series as Loose[]) : []).map((s, i) => ({
+        name: String(s.name ?? `Series ${i + 1}`),
+        values: categories.map((_, k) => num((s.values as unknown[] | undefined)?.[k], 0)),
+        color: typeof s.color === 'string' ? s.color : seriesColor(i),
+      }));
+      if (!categories.length || !series.length) return null;
+      return createChartObject(ids, (raw.chartType as ChartType) ?? 'column', { ...(base as Partial<ChartObject>), ...shared, categories, series });
+    }
     case 'icon':
       return createIconObject(ids, resolveIconName((raw.icon ?? raw.iconClass) as string), {
         ...(base as Partial<IconObject>), ...shared,
