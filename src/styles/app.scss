@@ -1,0 +1,313 @@
+// SlideCraft — styles. Carbon provides tokens, type and components;
+// this file only lays out the editor and styles the slide canvas chrome.
+// IBM Plex is loaded from Google Fonts in index.html
+@use '@carbon/react' with ($css--font-face: false);
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/motion' as *;
+
+$header-h: 48px;
+$toolbar-h: 48px;
+$status-h: 32px;
+$panel-w: 216px;
+$props-w: 288px;
+
+html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+body { background: $background; }
+
+.sc-app { display: flex; flex-direction: column; height: 100vh; }
+.sc-body { flex: 1; display: flex; flex-direction: column; min-height: 0; padding-top: $header-h; }
+
+// ---------------------------------------------------------------
+// Header & menubar
+// ---------------------------------------------------------------
+.sc-header {
+  .cds--header__name { padding-right: $spacing-05; white-space: nowrap; }
+  .sc-logo { color: #4589ff; margin-right: $spacing-03; font-size: 18px; }
+}
+.sc-menubar { display: flex; height: 100%; align-items: stretch; }
+.sc-menubar-item {
+  @include type-style('body-compact-01');
+  background: none; border: 0; color: $text-secondary; padding: 0 $spacing-04; cursor: pointer;
+  &:hover, &.is-open { background: $background-hover; color: $text-primary; }
+  &:focus-visible { outline: 2px solid $focus; outline-offset: -2px; }
+}
+.sc-title-wrap { flex: 1; display: flex; justify-content: center; min-width: 120px; padding: 0 $spacing-05; }
+.sc-doc-title {
+  @include type-style('heading-compact-01');
+  width: 100%; max-width: 420px; text-align: center; background: transparent; color: $text-primary;
+  border: 0; border-bottom: 1px solid transparent; padding: $spacing-02 $spacing-03; outline: none;
+  &:hover { border-bottom-color: $border-strong; }
+  &:focus { border-bottom-color: $focus; background: $field; }
+}
+.sc-save-status {
+  @include type-style('label-01');
+  display: flex; align-items: center; gap: $spacing-02; color: $text-secondary; padding: 0 $spacing-05; white-space: nowrap;
+  &.is-error { color: $support-error; }
+  &.cds--inline-loading { width: auto; min-height: auto; }
+}
+.cds--header__global { align-items: center; }
+.sc-present-btn { height: $header-h; min-height: $header-h; }
+
+// Menus (Carbon Menu) sit above everything, including modals' overlay
+.sc-menu { z-index: 9100; }
+
+// ---------------------------------------------------------------
+// Toolbar
+// ---------------------------------------------------------------
+.sc-toolbar {
+  display: flex; align-items: center; gap: 1px; height: $toolbar-h; padding: 0 $spacing-03;
+  background: $layer-01; border-bottom: 1px solid $border-subtle-01; overflow-x: auto; overflow-y: hidden; flex-shrink: 0;
+  scrollbar-width: thin;
+  > * { flex-shrink: 0; }
+}
+.sc-toolbar-sep { width: 1px; height: 24px; background: $border-subtle-01; margin: 0 $spacing-03; }
+.sc-font-select {
+  .cds--select-input { width: 150px; }
+  .cds--select-input__wrapper { width: auto; }
+}
+.sc-font-size {
+  width: 56px;
+  .cds--number input[type='number'] { min-width: 0; width: 56px; padding: 0 $spacing-03; text-align: center; }
+}
+.sc-color-btn {
+  position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 32px; height: 32px; cursor: pointer; color: $icon-primary;
+  &:hover { background: $background-hover; }
+  &:focus-within { outline: 2px solid $focus; outline-offset: -2px; }
+  &.is-disabled { color: $icon-disabled; cursor: not-allowed; .sc-color-swatch { opacity: .4; } }
+  svg { width: 16px; height: 16px; margin-top: -3px; }
+  input { position: absolute; inset: 0; opacity: 0; cursor: inherit; width: 100%; height: 100%; padding: 0; border: 0; }
+}
+.sc-color-swatch { width: 18px; height: 4px; margin-top: 2px; outline: 1px solid $border-subtle-01; }
+
+// Shape & icon pickers
+.sc-picker { padding: $spacing-04; width: 312px; .cds--search { margin-bottom: $spacing-03; } }
+.sc-picker-grid {
+  display: grid; gap: 2px;
+  &.shapes { grid-template-columns: repeat(6, 1fr); }
+  &.icons { grid-template-columns: repeat(8, 1fr); max-height: 240px; overflow-y: auto; }
+}
+.sc-picker-item {
+  display: flex; align-items: center; justify-content: center; aspect-ratio: 1; background: none;
+  border: 1px solid transparent; cursor: pointer; color: $icon-primary; fill: $icon-primary;
+  &:hover { background: $layer-hover-01; border-color: $border-interactive; color: $link-primary; fill: $link-primary; }
+  &:focus-visible { outline: 2px solid $focus; }
+}
+.sc-picker-empty { grid-column: 1 / -1; color: $text-secondary; @include type-style('helper-text-01'); padding: $spacing-03; }
+
+// ---------------------------------------------------------------
+// Main layout
+// ---------------------------------------------------------------
+.sc-main { flex: 1; display: flex; min-height: 0; }
+
+.sc-slide-panel {
+  width: $panel-w; flex-shrink: 0; display: flex; flex-direction: column; background: $layer-01;
+  border-right: 1px solid $border-subtle-01;
+}
+.sc-slide-list { flex: 1; overflow-y: auto; padding: $spacing-04 $spacing-04 $spacing-04 0; display: flex; flex-direction: column; gap: $spacing-04; }
+.sc-thumb {
+  position: relative; display: flex; align-items: flex-start; gap: 0; background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
+  &:focus-visible { outline: none; .sc-thumb-frame { outline: 2px solid $focus; } }
+  &:hover .sc-thumb-frame { outline: 1px solid $border-strong-01; }
+  &.is-active .sc-thumb-frame { outline: 2px solid $border-interactive; }
+  &.drop-before::before, &.drop-after::after {
+    content: ''; position: absolute; left: 24px; right: 0; height: 3px; background: $border-interactive;
+  }
+  &.drop-before::before { top: -6px; }
+  &.drop-after::after { bottom: -6px; }
+}
+.sc-thumb-num { width: 24px; flex-shrink: 0; text-align: center; @include type-style('label-01'); color: $text-secondary; padding-top: 2px; }
+.sc-thumb.is-active .sc-thumb-num { color: $text-primary; font-weight: 600; }
+.sc-thumb-frame { display: block; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); pointer-events: none; }
+.sc-thumb-notes { position: absolute; right: 4px; bottom: 4px; fill: $icon-secondary; background: $layer-01; padding: 1px; }
+.sc-add-slide { margin: $spacing-04; max-width: none; width: calc(100% - 2 * #{$spacing-04}); }
+
+// Editor canvas
+.editor-area {
+  flex: 1; min-width: 0; overflow: auto; display: flex; background: $background;
+  background-image: radial-gradient($border-subtle-00 1px, transparent 1px); background-size: 16px 16px;
+  &.drop-target { box-shadow: inset 0 0 0 3px $border-interactive; }
+}
+.canvas-sizer { margin: auto; padding: 0; position: relative; flex-shrink: 0; }
+.canvas-scaler { position: absolute; left: 0; top: 0; width: 960px; height: 540px; transform-origin: 0 0; }
+.slide-canvas {
+  position: relative; width: 960px; height: 540px; overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.06);
+  ul, ol { padding-left: 1.4em; margin: 0; }
+  ul { list-style: disc; } ol { list-style: decimal; }
+}
+.slide-stage, .sc-print-page, .sc-show-slide, .sc-presenter-slide {
+  ul, ol { padding-left: 1.4em; margin: 0; }
+  ul { list-style: disc; } ol { list-style: decimal; }
+}
+
+.slide-object {
+  cursor: move; user-select: none;
+  &:hover:not(.selected) { outline: 1px solid rgba(15, 98, 254, .5); outline-offset: -1px; }
+  &.selected { outline: 2px solid $border-interactive; outline-offset: -1px; }
+  &.editing { cursor: text; user-select: text; outline: 2px dashed $border-interactive; }
+}
+.editing-surface { cursor: text; user-select: text; caret-color: currentColor; }
+.multi-select .slide-object.selected { outline-style: solid; outline-width: 2px; }
+
+.resize-handle {
+  position: absolute; width: 10px; height: 10px; background: #fff; border: 2px solid $border-interactive; z-index: 5;
+  &.nw { top: -5px; left: -5px; cursor: nwse-resize; } &.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+  &.ne { top: -5px; right: -5px; cursor: nesw-resize; } &.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+  &.n { top: -5px; left: calc(50% - 5px); cursor: ns-resize; } &.s { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+  &.e { top: calc(50% - 5px); right: -5px; cursor: ew-resize; } &.w { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+}
+.rotate-handle {
+  position: absolute; top: -30px; left: calc(50% - 7px); width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; border: 2px solid $border-interactive; cursor: grab; z-index: 5;
+  &::after { content: ''; position: absolute; left: 50%; top: 12px; width: 1px; height: 14px; background: $border-interactive; }
+}
+
+.guide-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.guide-line {
+  position: absolute; background: #ee5396;
+  &.vertical { top: -2000px; bottom: -2000px; width: calc(1px / var(--zoom, 1)); }
+  &.horizontal { left: -2000px; right: -2000px; height: calc(1px / var(--zoom, 1)); }
+}
+.selection-box { position: absolute; border: calc(1px / var(--zoom, 1)) solid $border-interactive; background: rgba(15, 98, 254, .08); }
+
+// Properties
+.sc-properties { width: $props-w; flex-shrink: 0; overflow-y: auto; background: $layer-01; border-left: 1px solid $border-subtle-01; }
+.sc-prop-section { padding: $spacing-05; border-bottom: 1px solid $border-subtle-01; display: flex; flex-direction: column; gap: $spacing-04; }
+.sc-prop-title { display: flex; align-items: baseline; justify-content: space-between; h2 { @include type-style('heading-compact-01'); } }
+.sc-prop-badge { @include type-style('label-01'); color: $text-secondary; }
+.sc-prop-hint { @include type-style('helper-text-01'); color: $text-secondary; }
+.sc-prop-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: $spacing-04 $spacing-03; align-items: end;
+  .cds--number input[type='number'] { min-width: 0; }
+  .cds--btn { max-width: none; width: 100%; }
+  .cds--select-input__wrapper, .cds--select { width: 100%; }
+}
+.sc-span-2 { grid-column: span 2; }
+.sc-prop-stack { display: flex; flex-direction: column; gap: $spacing-03; .cds--btn { max-width: none; width: 100%; } }
+.sc-align-row { display: flex; justify-content: space-between; margin: (-$spacing-02) (-$spacing-03); }
+.sc-properties .cds--slider-container { width: 100%; }
+.sc-properties .cds--slider { min-width: 0; flex: 1; }
+.sc-properties .cds--text-area { min-height: 120px; }
+
+// Status bar
+.sc-status {
+  @include type-style('label-01');
+  display: flex; align-items: center; gap: $spacing-06; height: $status-h; padding: 0 $spacing-05; flex-shrink: 0;
+  background: $layer-01; border-top: 1px solid $border-subtle-01; color: $text-secondary;
+}
+.sc-status-spacer { flex: 1; }
+.sc-zoom { display: flex; align-items: center; gap: $spacing-02; }
+.sc-zoom-slider { .cds--slider { min-width: 100px; width: 120px; } .cds--slider__range-label { display: none; } }
+.sc-zoom-level { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+
+// Toasts
+.sc-toasts { position: fixed; right: $spacing-05; bottom: calc(#{$status-h} + #{$spacing-05}); z-index: 9000; display: flex; flex-direction: column; gap: $spacing-03; }
+
+// File drop overlay
+.sc-file-drop {
+  position: fixed; inset: 0; z-index: 8000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: $spacing-05;
+  background: rgba(15, 98, 254, .12); border: 3px dashed $border-interactive; color: $text-primary; fill: $icon-primary;
+  @include type-style('heading-03'); pointer-events: none;
+}
+
+// ---------------------------------------------------------------
+// Dialogs
+// ---------------------------------------------------------------
+.sc-dialog-row { display: flex; align-items: flex-end; gap: $spacing-04; margin-top: $spacing-05; > .cds--form-item { flex: 1; } }
+.sc-dialog-or { @include type-style('label-01'); color: $text-secondary; padding-bottom: $spacing-03; }
+.sc-dialog-hint { @include type-style('helper-text-01'); color: $text-secondary; margin: $spacing-04 0; }
+.sc-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: $spacing-04; padding-bottom: $spacing-05; }
+.sc-preview-tile {
+  padding: $spacing-03 !important; min-height: 0 !important; display: flex; flex-direction: column; gap: $spacing-03;
+  > div { box-shadow: 0 0 0 1px $border-subtle-01; }
+  &.is-active { outline: 2px solid $border-interactive; }
+}
+.sc-preview-label { @include type-style('label-02'); }
+.sc-bg-dialog { display: flex; gap: $spacing-06; flex-wrap: wrap; }
+.sc-bg-preview > div { box-shadow: 0 0 0 1px $border-subtle-01; }
+.sc-bg-controls { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: $spacing-03; }
+.sc-swatches { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: $spacing-03; }
+.sc-swatch {
+  width: 24px; height: 24px; border: 1px solid $border-subtle-01; cursor: pointer; padding: 0; position: relative;
+  &.is-active { outline: 2px solid $border-interactive; outline-offset: 1px; }
+  &:focus-visible { outline: 2px solid $focus; }
+}
+.sc-swatch-custom {
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  input { opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+}
+.sc-shortcuts {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 $spacing-07;
+  > div { display: flex; justify-content: space-between; gap: $spacing-04; padding: $spacing-03 0; border-bottom: 1px solid $border-subtle-01; }
+  dd { @include type-style('body-compact-01'); color: $text-secondary; text-align: right; }
+  kbd { @include type-style('code-01'); background: $layer-02; padding: 2px 6px; white-space: nowrap; }
+}
+
+// ---------------------------------------------------------------
+// Slideshow
+// ---------------------------------------------------------------
+.sc-show {
+  position: fixed; inset: 0; z-index: 10000; background: #000; display: flex; align-items: center; justify-content: center; outline: none;
+  &.is-idle { cursor: none; .sc-show-controls { opacity: 0; } }
+}
+.sc-show-slide { position: relative; overflow: hidden; animation-timing-function: motion(entrance, expressive); animation-fill-mode: both; }
+.sc-show-blank { position: absolute; inset: 0; &.is-black { background: #000; } &.is-white { background: #fff; } }
+.sc-show-progress { position: absolute; left: 0; bottom: 0; height: 3px; background: #0f62fe; transition: width $duration-moderate-02; }
+.sc-show-controls {
+  position: absolute; bottom: $spacing-06; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: $spacing-03;
+  background: rgba(22,22,22,.85); color: #f4f4f4; padding: $spacing-02 $spacing-04; transition: opacity $duration-moderate-02;
+  @include type-style('label-01');
+  span { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+  button { background: none; border: 0; color: inherit; fill: currentColor; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; &:hover { background: rgba(255,255,255,.12); } }
+}
+.sc-trans-fade { animation-name: sc-fade; }
+.sc-trans-slide-left { animation-name: sc-slide-left; }
+.sc-trans-slide-right { animation-name: sc-slide-right; }
+.sc-trans-slide-up { animation-name: sc-slide-up; }
+.sc-trans-slide-down { animation-name: sc-slide-down; }
+.sc-trans-zoom-in { animation-name: sc-zoom-in; }
+.sc-trans-zoom-out { animation-name: sc-zoom-out; }
+@keyframes sc-fade { from { opacity: 0; } }
+@keyframes sc-slide-left { from { transform: translateX(100%); } }
+@keyframes sc-slide-right { from { transform: translateX(-100%); } }
+@keyframes sc-slide-up { from { transform: translateY(100%); } }
+@keyframes sc-slide-down { from { transform: translateY(-100%); } }
+@keyframes sc-zoom-in { from { transform: scale(.3); opacity: 0; } }
+@keyframes sc-zoom-out { from { transform: scale(1.5); opacity: 0; } }
+
+// Presenter view (rendered into a separate window)
+.sc-presenter-body { margin: 0; background: #161616; color: #f4f4f4; overflow: hidden; }
+.sc-presenter { display: flex; flex-direction: column; height: 100vh; font-family: 'IBM Plex Sans', sans-serif; }
+.sc-presenter-bar { display: flex; align-items: center; gap: $spacing-04; padding: $spacing-04 $spacing-06; background: #262626; border-bottom: 1px solid #393939; }
+.sc-presenter-timer { font: 600 28px/1 'IBM Plex Mono', monospace; color: #78a9ff; min-width: 110px; }
+.sc-presenter-clock, .sc-presenter-count { @include type-style('body-compact-01'); color: #c6c6c6; }
+.sc-presenter-spacer { flex: 1; }
+.sc-presenter-btn {
+  display: inline-flex; align-items: center; gap: $spacing-02; height: 32px; padding: 0 $spacing-04; background: #393939; color: #f4f4f4;
+  fill: currentColor; border: 0; cursor: pointer; @include type-style('body-compact-01');
+  &:hover:not(:disabled) { background: #4c4c4c; } &:disabled { opacity: .4; cursor: default; }
+  &.is-primary { background: #0f62fe; &:hover:not(:disabled) { background: #0353e9; } }
+}
+.sc-presenter-main {
+  flex: 1; display: flex; gap: $spacing-07; padding: $spacing-06; min-height: 0;
+  h3 { @include type-style('label-02'); color: #a8a8a8; text-transform: uppercase; letter-spacing: .32px; margin: 0 0 $spacing-03; }
+}
+.sc-presenter-side { display: flex; flex-direction: column; min-height: 0; h3:not(:first-child) { margin-top: $spacing-06; } }
+.sc-presenter-slide { box-shadow: 0 0 0 1px #393939; background: #fff; }
+.sc-presenter-end { display: flex; align-items: center; justify-content: center; background: #262626; color: #8d8d8d; }
+.sc-presenter-notes { flex: 1; overflow-y: auto; @include type-style('body-02'); font-size: 20px; line-height: 1.5; white-space: pre-wrap; color: #f4f4f4; em { color: #8d8d8d; } }
+
+// ---------------------------------------------------------------
+// Print / Save as PDF: one slide per landscape page
+// ---------------------------------------------------------------
+.sc-print-root { display: none; }
+@media print {
+  @page { size: 960px 540px; margin: 0; }
+  html, body, #root { height: auto; overflow: visible; background: #fff; }
+  #root { display: none; }
+  .sc-print-root { display: block; }
+  .sc-print-page { width: 960px; height: 540px; overflow: hidden; break-after: page; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

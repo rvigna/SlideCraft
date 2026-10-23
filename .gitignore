@@ -30,7 +30,7 @@ build/
 .env*.local
 
 # Package Manager Files
-package-lock.json
+# package-lock.json is committed
 yarn.lock
 pnpm-lock.yaml
 
@@ -70,3 +70,7 @@ temp/
 # Project-specific exports (optional - uncomment if you want to ignore exports)
 # exports/
 # backups/
+
+# Test artifacts
+test-results/
+playwright-report/
