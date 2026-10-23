@@ -1,5 +1,7 @@
 /* Import PowerPoint (.pptx) files by reading the Office Open XML directly. */
 import JSZip from 'jszip';
+import { El as XmlEl, parseXml, type Doc as XmlDoc } from '../model/markup';
+import { cropPicture, withImageCache } from './raster';
 import { SLIDE_H, SLIDE_W, type ShapeType } from '../model/types';
 import { contrastText, hslToRgb, mixColors, parseColor, rgbaToCss, rgbToHsl, type Rgba } from '../model/color';
 import { paragraphsToHtml, type Paragraph, type TextRun } from '../model/richtext';
@@ -7,7 +9,7 @@ import { paragraphsToHtml, type Paragraph, type TextRun } from '../model/richtex
 // ---------------------------------------------------------------
 // XML helpers (namespace-agnostic: match on local names)
 // ---------------------------------------------------------------
-type El = Element;
+type El = XmlEl;
 
 const kids = (el: El | null | undefined, name: string): El[] =>
   el ? [...el.children].filter(c => c.localName === name) : [];
@@ -50,16 +52,16 @@ const MIME: Record<string, string> = {
 interface Rel { type: string; target: string }
 
 class Package {
-  private xml = new Map<string, Document | null>();
+  private xml = new Map<string, XmlDoc | null>();
   private rels = new Map<string, Map<string, Rel>>();
   private media = new Map<string, string | null>();
   constructor(private zip: JSZip) {}
 
-  async doc(p: string): Promise<Document | null> {
+  async doc(p: string): Promise<XmlDoc | null> {
     if (!this.xml.has(p)) {
       const file = this.zip.file(p);
       const text = file ? await file.async('string') : null;
-      this.xml.set(p, text ? new DOMParser().parseFromString(text, 'application/xml') : null);
+      this.xml.set(p, text ? parseXml(text) : null);
     }
     return this.xml.get(p) ?? null;
   }
@@ -109,7 +111,7 @@ interface ThemeInfo {
   bgFills: El[];        // fmtScheme/bgFillStyleLst
 }
 
-function readTheme(doc: Document | null): ThemeInfo {
+function readTheme(doc: XmlDoc | null): ThemeInfo {
   const root = doc?.documentElement;
   const scheme = desc(root, 'clrScheme');
   const colors: Record<string, string> = {};
@@ -409,7 +411,7 @@ interface PlaceholderInfo { type: string; idx: string | null }
 
 interface Layer {
   part: string;
-  doc: Document;
+  doc: XmlDoc;
   spTree: El | null;
 }
 
@@ -452,32 +454,14 @@ async function emitImage(ctx: SlideCtx, rid: string, geo: Geo, opacity = 100, cr
   const target = (await ctx.pkg.relsOf(ctx.part)).get(rid)?.target;
   const src = target ? await ctx.pkg.mediaUrl(target) : null;
   if (!src) { ctx.warnings.add('Some images use formats browsers cannot display (EMF/WMF) and were skipped.'); return; }
-  const cropped = crop ? await cropImage(src, crop) : src;
+  const cropped = crop ? await cropPicture(src, cropFractions(crop)) : src;
   ctx.out.push({ type: 'image', src: cropped, x: geo.x, y: geo.y, w: geo.w, h: geo.h, rotation: geo.rot, objectFit: 'fill', opacity });
 }
 
-/** Apply a:srcRect cropping (values in 1/1000 of a percent) */
-async function cropImage(src: string, rect: El): Promise<string> {
+/** a:srcRect offsets, in 1/1000 of a percent, as fractions of the picture */
+function cropFractions(rect: El) {
   const [l, t, r, b] = ['l', 't', 'r', 'b'].map(k => (numAttr(rect, k) ?? 0) / 100000);
-  if (!l && !t && !r && !b) return src;
-  if (typeof document === 'undefined') return src;
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const sx = img.naturalWidth * l, sy = img.naturalHeight * t;
-        const sw = img.naturalWidth * (1 - l - r), sh = img.naturalHeight * (1 - t - b);
-        const c = document.createElement('canvas');
-        c.width = Math.max(1, Math.round(sw)); c.height = Math.max(1, Math.round(sh));
-        const g = c.getContext('2d');
-        if (!g) return resolve(src);
-        g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
-        resolve(c.toDataURL(src.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png'));
-      } catch { resolve(src); }
-    };
-    img.onerror = () => resolve(src);
-    img.src = src;
-  });
+  return { l, t, r, b };
 }
 
 function lineOf(spPr: El | null, style: El | null, ctx: SlideCtx): { color: string; width: number; dash: 'solid' | 'dashed' | 'dotted' } | null {
@@ -871,7 +855,7 @@ async function parseTree(tree: El | null, xf: Xf, ctx: SlideCtx, opts: { skipPla
   }
 }
 
-async function backgroundOf(layers: { doc: Document; part: string }[], ctx: SlideCtx): Promise<{ background: string; backgroundImage: string }> {
+async function backgroundOf(layers: { doc: XmlDoc; part: string }[], ctx: SlideCtx): Promise<{ background: string; backgroundImage: string }> {
   for (const layer of layers) {
     const bg = path(layer.doc.documentElement, 'cSld', 'bg');
     if (!bg) continue;
@@ -916,7 +900,7 @@ async function notesOf(pkg: Package, slidePart: string): Promise<string> {
 const PUSH_DIR: Record<string, string> = { l: 'slide-left', r: 'slide-right', u: 'slide-up', d: 'slide-down' };
 
 /** Map PowerPoint transitions onto SlideCraft's set (unknown effects become a fade) */
-function readTransition(sld: El): { transition: string; transitionDuration: number } {
+function readTransition(sld: El | null): { transition: string; transitionDuration: number } {
   // PowerPoint 2010+ wraps transitions in mc:AlternateContent; prefer the richer Choice
   const alt = kids(sld, 'AlternateContent').find(a => desc(a, 'transition'));
   const el = kid(sld, 'transition') ?? (alt ? desc(kid(alt, 'Choice') ?? alt, 'transition') : null);
@@ -950,6 +934,10 @@ export interface PptxImportResult {
 }
 
 export async function pptxToDeck(data: ArrayBuffer | Blob | Uint8Array, fileName = 'Presentation.pptx'): Promise<PptxImportResult> {
+  return withImageCache(() => importPackage(data, fileName));
+}
+
+async function importPackage(data: ArrayBuffer | Blob | Uint8Array, fileName: string): Promise<PptxImportResult> {
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(data);

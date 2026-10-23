@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { loadDeck, markSaved, toast, useEditor } from '../store/editor';
 import { setBusy, useUi } from '../store/ui';
 import { normalizeDeck } from '../model/factory';
+import { exportPptxOffThread, importPptxOffThread } from './pptxWorker';
 import { downloadBlob, pickFile, safeFileName } from './images';
 import { idbGet, idbSet } from './storage';
 
@@ -102,8 +103,7 @@ async function withBusy<T>(label: string, fn: () => Promise<T>): Promise<T | und
 
 export async function openPptx(file: File) {
   await withBusy('Opening presentation', async () => {
-    const { pptxToDeck } = await import('./pptxImport');
-    const { deck, warnings } = await pptxToDeck(await file.arrayBuffer(), file.name);
+    const { deck, warnings } = await importPptxOffThread(await file.arrayBuffer(), file.name);
     loadDeck(deck);
     const n = useEditor.getState().deck.slides.length;
     toast(warnings.length ? 'warning' : 'success', `Opened “${file.name}” — ${n} slide${n !== 1 ? 's' : ''}`, warnings.join(' '));
@@ -117,9 +117,8 @@ export async function openPptxFile() {
 
 export async function savePptxFile() {
   await withBusy('Saving PowerPoint', async () => {
-    const { deckToPptx } = await import('./pptxExport');
     const { deck } = useEditor.getState();
-    const { blob, warnings } = await deckToPptx(deck);
+    const { blob, warnings } = await exportPptxOffThread(deck);
     downloadBlob(blob, `${safeFileName(deck.title)}.pptx`);
     toast(warnings.length ? 'warning' : 'success', 'PowerPoint file downloaded', warnings.join(' '));
   });

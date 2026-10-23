@@ -117,6 +117,7 @@ slidecraft lint deck.pptx --fix -o fixed.pptx    # apply the automatic fixes
   - **slide transitions**, and the deck theme (stored so it comes back when reopened in SlideCraft)
   - Gradients and icons become images.
 - **Office fonts** keep their names in the file but display with metric-compatible open fonts when the original isn't installed (Calibri→Carlito, Cambria→Caladea, Arial→Arimo, Times New Roman→Tinos, Courier New→Cousine, Georgia→Gelasio, Aptos→Inter), so line breaks match PowerPoint.
+- PowerPoint import and export run in a background worker, so the editor stays responsive while a large deck is read or packaged.
 - Not supported yet: scatter, bubble and stock charts are skipped, and merged table cells import unmerged. A notification lists anything that changed.
 
 ### Editing

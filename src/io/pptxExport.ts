@@ -5,7 +5,7 @@ import type { Deck, ShapeObject, Slide, SlideObject, TextObject } from '../model
 import { SLIDE_W } from '../model/types';
 import { alphaOf, toHex6 } from '../model/color';
 import { htmlToParagraphs } from '../model/richtext';
-import { fitImage, iconPng, rasterizeGradient } from './raster';
+import { fitImage, rasterizeGradient, withImageCache } from './raster';
 import { cellStyle } from '../model/table';
 import { sliceColor } from '../model/palette';
 
@@ -105,13 +105,13 @@ async function addBackground(ps: PptxGenJS.Slide, slide: Slide) {
     if (fitted) { ps.background = { data: pptxData(fitted) }; return; }
   }
   if (/gradient/i.test(slide.background)) {
-    const png = rasterizeGradient(slide.background);
+    const png = await rasterizeGradient(slide.background);
     if (png) { ps.background = { data: pptxData(png) }; return; }
   }
   ps.background = { color: toHex6(slide.background, 'FFFFFF') };
 }
 
-async function addObject(pptx: PptxGenJS, ps: PptxGenJS.Slide, o: SlideObject, warnings: string[]) {
+async function addObject(pptx: PptxGenJS, ps: PptxGenJS.Slide, o: SlideObject, warnings: string[], icons: Record<number, string | null>) {
   const shadow = o.shadow !== 'none' ? SHADOWS[o.shadow] : undefined;
   switch (o.type) {
     case 'text': {
@@ -209,7 +209,7 @@ async function addObject(pptx: PptxGenJS, ps: PptxGenJS.Slide, o: SlideObject, w
       break;
     }
     case 'icon': {
-      const data = await iconPng(o.icon, o.color, Math.min(o.w, o.h));
+      const data = icons[o.id] ?? null;
       if (!data) { warnings.push('Some icons could not be converted and were skipped.'); break; }
       // Icons render at 80% of their box, centered
       const s = Math.min(o.w, o.h) * 0.8;
@@ -273,13 +273,25 @@ async function finalizePackage(data: ArrayBuffer, deck: Deck): Promise<JSZip> {
     zip.file('_rels/.rels', rels.replace('</Relationships>',
       '<Relationship Id="rIdSlideCraftCustom" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/></Relationships>'));
   }
-  return zip;
+  // Images are already compressed, so deflating them again costs time for almost no saving: store them, deflate the XML
+  const out = new JSZip();
+  for (const [name, file] of Object.entries(zip.files)) {
+    if (file.dir) { out.folder(name); continue; }
+    out.file(name, await file.async('uint8array'), { binary: true, compression: name.startsWith('ppt/media/') ? 'STORE' : 'DEFLATE' });
+  }
+  return out;
 }
 
 export const THEME_PROPERTY = 'SlideCraftTheme';
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
-async function buildPptx(deck: Deck) {
+/** Work done on the main thread that the exporter can't do itself (SVG icons) */
+export interface PptxAssets {
+  /** PNG per icon object id; a missing or null entry skips that icon */
+  icons?: Record<number, string | null>;
+}
+
+async function buildPptx(deck: Deck, assets: PptxAssets) {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
   pptx.title = deck.title;
@@ -292,7 +304,7 @@ async function buildPptx(deck: Deck) {
     await addBackground(ps, slide);
     for (const o of slide.objects) {
       try {
-        await addObject(pptx, ps, o, warnings);
+        await addObject(pptx, ps, o, warnings, assets.icons ?? {});
       } catch (err) {
         warnings.push(`Skipped a ${o.type}: ${(err as Error).message}`);
       }
@@ -302,15 +314,19 @@ async function buildPptx(deck: Deck) {
   return { pptx, warnings: [...new Set(warnings)] };
 }
 
-export async function deckToPptx(deck: Deck): Promise<PptxExportResult> {
-  const { pptx, warnings } = await buildPptx(deck);
-  const zip = await finalizePackage((await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer, deck);
-  return { blob: await zip.generateAsync({ type: 'blob', mimeType: PPTX_MIME, compression: 'DEFLATE' }), warnings };
+export async function deckToPptx(deck: Deck, assets: PptxAssets = {}): Promise<PptxExportResult> {
+  return withImageCache(async () => {
+    const { pptx, warnings } = await buildPptx(deck, assets);
+    const zip = await finalizePackage((await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer, deck);
+    return { blob: await zip.generateAsync({ type: 'blob', mimeType: PPTX_MIME, compression: 'DEFLATE' }), warnings };
+  });
 }
 
-/** Node-friendly variant (used by the round-trip tests) */
-export async function deckToPptxArrayBuffer(deck: Deck): Promise<ArrayBuffer> {
-  const { pptx } = await buildPptx(deck);
-  const zip = await finalizePackage((await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer, deck);
-  return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+/** Node-friendly variant (used by the CLI and the round-trip tests) */
+export async function deckToPptxArrayBuffer(deck: Deck, assets: PptxAssets = {}): Promise<ArrayBuffer> {
+  return withImageCache(async () => {
+    const { pptx } = await buildPptx(deck, assets);
+    const zip = await finalizePackage((await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer, deck);
+    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+  });
 }

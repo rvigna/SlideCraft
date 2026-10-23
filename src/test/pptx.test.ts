@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
 import { deckToPptxArrayBuffer } from '../io/pptxExport';
 import { pptxToDeck } from '../io/pptxImport';
-import { iconSvg } from '../io/raster';
+import { iconSvg } from '../io/iconRaster';
 import { createChartObject, createDeck, createIconObject, createShapeObject, createTableObject, createTextObject, IdSource, normalizeDeck } from '../model/factory';
 import type { ChartObject, Deck, TableObject, TextObject } from '../model/types';
 

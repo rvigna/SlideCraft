@@ -19,6 +19,7 @@ import { plainToHtml, sanitizeHtml, htmlToPlain } from './model/richtext';
 import { seriesColor, tableColors } from './model/palette';
 import { imageSize } from './io/images';
 import { exportJsonFile, printDeck, saveToBrowser } from './io/files';
+import { exportPptxOffThread, importPptxOffThread } from './io/pptxWorker';
 import { lintDeck, type LintIssue } from './model/lint';
 import { applyMotion, MOTION_PRESETS, type MotionOptions } from './model/motion';
 import { fixAll, lintContext } from './components/lintActions';
@@ -244,16 +245,14 @@ export const api = {
   save: () => saveToBrowser(),
   /** Build the .pptx; returns a Blob (and downloads it unless { download: false }) */
   async exportPptx(opts: { download?: boolean; filename?: string } = {}): Promise<Blob> {
-    const { deckToPptx } = await import('./io/pptxExport');
-    const { blob } = await deckToPptx(ed.useEditor.getState().deck);
+    const { blob } = await exportPptxOffThread(ed.useEditor.getState().deck);
     if (opts.download !== false) downloadBlob(blob, opts.filename ?? `${safeFileName(ed.useEditor.getState().deck.title)}.pptx`);
     return blob;
   },
   /** Open a .pptx from a URL, Blob, File or ArrayBuffer; returns import warnings */
   async openPptx(source: string | Blob | ArrayBuffer): Promise<string[]> {
     const data = typeof source === 'string' ? await (await fetch(source)).arrayBuffer() : source instanceof Blob ? await source.arrayBuffer() : source;
-    const { pptxToDeck } = await import('./io/pptxImport');
-    const { deck, warnings } = await pptxToDeck(data, typeof source === 'string' ? source.split('/').pop() : undefined);
+    const { deck, warnings } = await importPptxOffThread(data, typeof source === 'string' ? source.split('/').pop() : undefined);
     ed.loadDeck(deck);
     return warnings;
   },
