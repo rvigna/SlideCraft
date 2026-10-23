@@ -44,6 +44,22 @@ describe('rich text', () => {
   });
 });
 
+describe('nested lists', () => {
+  it('round-trips list levels', () => {
+    const html = '<ul><li>One<ul><li>Sub A</li><li>Sub B</li></ul></li><li>Two</li></ul>';
+    const paras = htmlToParagraphs(html);
+    expect(paras.map(p => [p.runs.map(r => r.text).join(''), p.level])).toEqual([
+      ['One', 0], ['Sub A', 1], ['Sub B', 1], ['Two', 0],
+    ]);
+    expect(paragraphsToHtml(paras)).toBe(html);
+  });
+
+  it('reads the sibling-list form browsers produce when indenting', () => {
+    const paras = htmlToParagraphs('<ul><li>One</li><ul><li>Sub</li></ul><li>Two</li></ul>');
+    expect(paras.map(p => p.level)).toEqual([0, 1, 0]);
+  });
+});
+
 describe('colors', () => {
   it('converts CSS colors to PowerPoint hex', () => {
     expect(toHex6('#0f62fe')).toBe('0F62FE');

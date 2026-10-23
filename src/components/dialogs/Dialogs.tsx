@@ -221,6 +221,13 @@ export function Dialogs() {
   // Close dialogs when entering presentation mode
   const presenting = ed.useEditor(s => !!s.presentation);
   useEffect(() => { if (presenting) closeDialog(); }, [presenting]);
+  // Capture phase: Carbon tooltips inside the modal would otherwise swallow Escape
+  useEffect(() => {
+    if (!dialog) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !useUi.getState().menu) { e.stopPropagation(); closeDialog(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [dialog]);
   switch (dialog) {
     case 'image': return <ImageDialog />;
     case 'background': return <BackgroundDialog />;

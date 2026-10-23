@@ -73,6 +73,13 @@ function EditableText({ obj }: { obj: Extract<SlideObject, { type: 'text' | 'sha
       onMouseDown={e => e.stopPropagation()}
       onKeyDown={e => {
         if (e.key === 'Escape') { e.preventDefault(); ref.current?.blur(); }
+        if (e.key === 'Tab') {
+          // Tab / Shift+Tab nest list items; outside lists Tab is swallowed so focus stays put
+          e.preventDefault();
+          const anchor = window.getSelection()?.anchorNode;
+          const inList = !!(anchor instanceof Element ? anchor : anchor?.parentElement)?.closest('li');
+          if (inList) document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+        }
         e.stopPropagation();
       }}
       onPaste={e => {

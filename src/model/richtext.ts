@@ -63,20 +63,29 @@ export interface TextRun {
 export interface Paragraph {
   runs: TextRun[];
   bullet?: 'bullet' | 'number';
+  /** Nesting depth for list items, 0 = top level */
+  level?: number;
 }
+
+interface ListCtx { type: 'bullet' | 'number'; depth: number }
 
 /** Flatten rich-text HTML into paragraphs of styled runs */
 export function htmlToParagraphs(html: string): Paragraph[] {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
   const paragraphs: Paragraph[] = [];
   let current: Paragraph = { runs: [] };
+  let list: ListCtx | null = null;
 
+  const startParagraph = () => {
+    current = { runs: [] };
+    if (list) { current.bullet = list.type; current.level = list.depth; }
+  };
   const flush = (force = false) => {
     if (force || current.runs.length) paragraphs.push(current);
-    current = { runs: [] };
+    startParagraph();
   };
 
-  const walk = (node: Node, style: Omit<TextRun, 'text'>, bullet?: Paragraph['bullet']) => {
+  const walk = (node: Node, style: Omit<TextRun, 'text'>) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent ?? '';
       if (text) current.runs.push({ text, ...style });
@@ -84,7 +93,7 @@ export function htmlToParagraphs(html: string): Paragraph[] {
     }
     if (!(node instanceof Element)) return;
     const tag = node.tagName;
-    if (tag === 'BR') { flush(true); if (bullet) current.bullet = bullet; return; }
+    if (tag === 'BR') { flush(true); return; }
 
     const next = { ...style };
     if (tag === 'B' || tag === 'STRONG') next.bold = true;
@@ -102,14 +111,29 @@ export function htmlToParagraphs(html: string): Paragraph[] {
       if (css.textDecoration.includes('line-through')) next.strike = true;
     }
 
-    const block = tag === 'DIV' || tag === 'P' || tag === 'LI';
-    const listBullet = tag === 'UL' ? 'bullet' : tag === 'OL' ? 'number' : bullet;
-    if (block) {
+    if (tag === 'UL' || tag === 'OL') {
       flush();
-      if (tag === 'LI') current.bullet = bullet;
+      const outer = list;
+      list = { type: tag === 'UL' ? 'bullet' : 'number', depth: outer ? outer.depth + 1 : 0 };
+      startParagraph();
+      node.childNodes.forEach(child => walk(child, next));
+      flush();
+      list = outer;
+      startParagraph();
+      return;
     }
-    node.childNodes.forEach(child => walk(child, next, listBullet));
-    if (block) flush(tag === 'LI' || tag === 'P');
+    if (tag === 'LI') {
+      flush();
+      const before = paragraphs.length;
+      node.childNodes.forEach(child => walk(child, next));
+      // An empty item still counts as a (blank) bullet
+      if (current.runs.length || paragraphs.length === before) flush(true); else startParagraph();
+      return;
+    }
+    const block = tag === 'DIV' || tag === 'P';
+    if (block) flush();
+    node.childNodes.forEach(child => walk(child, next));
+    if (block) flush(tag === 'P');
   };
 
   doc.body.firstChild?.childNodes.forEach(n => walk(n, {}));
@@ -134,18 +158,30 @@ export function paragraphsToHtml(paragraphs: Paragraph[], defaults: { color?: st
   };
 
   let out = '';
-  let openList: 'bullet' | 'number' | null = null;
-  const closeList = () => { if (openList) out += openList === 'bullet' ? '</ul>' : '</ol>'; openList = null; };
+  // Open lists, innermost last; nested lists live inside their parent <li>
+  const stack: { type: 'bullet' | 'number'; liOpen: boolean }[] = [];
+  const tagOf = (t: 'bullet' | 'number') => (t === 'bullet' ? 'ul' : 'ol');
+  const closeTop = () => {
+    const top = stack.pop()!;
+    if (top.liOpen) out += '</li>';
+    out += `</${tagOf(top.type)}>`;
+  };
   paragraphs.forEach((p, i) => {
     const content = p.runs.map(runHtml).join('');
     if (p.bullet) {
-      if (openList !== p.bullet) { closeList(); out += p.bullet === 'bullet' ? '<ul>' : '<ol>'; openList = p.bullet; }
-      out += `<li>${content}</li>`;
+      const depth = Math.max(0, p.level ?? 0);
+      while (stack.length > depth + 1) closeTop();
+      if (stack.length === depth + 1 && stack[depth].type !== p.bullet) closeTop();
+      if (stack.length === depth + 1 && stack[depth].liOpen) { out += '</li>'; stack[depth].liOpen = false; }
+      while (stack.length < depth + 1) { out += `<${tagOf(p.bullet)}>`; stack.push({ type: p.bullet, liOpen: false }); }
+      out += `<li>${content}`;
+      stack[depth].liOpen = true;
     } else {
-      closeList();
-      out += (i > 0 && !out.endsWith('</ul>') && !out.endsWith('</ol>') ? '<br>' : '') + content;
+      const afterList = stack.length > 0;
+      while (stack.length) closeTop();
+      out += (i > 0 && !afterList ? '<br>' : '') + content;
     }
   });
-  closeList();
+  while (stack.length) closeTop();
   return out;
 }

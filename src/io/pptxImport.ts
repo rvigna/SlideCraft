@@ -351,7 +351,8 @@ function parseText(txBody: El | null, ctx: TextCtx): ParsedText | null {
       const spc = attr(path(pPr, 'lnSpc', 'spcPct'), 'val') ?? levels.map(l => attr(path(l, 'lnSpc', 'spcPct'), 'val')).find(v => v != null);
       if (spc) lineHeight = Math.max(0.8, (Number(spc) / 100000 - ctx.lnSpcReduction) * 1.2);
     }
-    const para: Paragraph = { runs: [], bullet: bulletOf(pPr, levels) };
+    const bullet = bulletOf(pPr, levels);
+    const para: Paragraph = { runs: [], bullet, level: bullet ? level : undefined };
     const defaults: RunStyle = {};
     readRunProps(kid(pPr, 'defRPr'), ctx, defaults);
     levelRunDefaults(ctx, level, defaults);

@@ -137,10 +137,12 @@ body { background: $background; }
   box-shadow: 0 2px 6px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.06);
   ul, ol { padding-left: 1.4em; margin: 0; }
   ul { list-style: disc; } ol { list-style: decimal; }
+  ul ul { list-style: circle; } ul ul ul { list-style: square; }
 }
 .slide-stage, .sc-print-page, .sc-show-slide, .sc-presenter-slide {
   ul, ol { padding-left: 1.4em; margin: 0; }
   ul { list-style: disc; } ol { list-style: decimal; }
+  ul ul { list-style: circle; } ul ul ul { list-style: square; }
 }
 
 .slide-object {

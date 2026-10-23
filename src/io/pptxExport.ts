@@ -70,6 +70,7 @@ function textRuns(o: TextObject): PptxGenJS.TextProps[] {
           fontSize: r.fontSize ? PT(r.fontSize) : undefined,
           fontFace: r.fontFamily,
           bullet: p.bullet === 'bullet' ? true : p.bullet === 'number' ? { type: 'number' } : undefined,
+          indentLevel: p.bullet && p.level ? p.level : undefined,
           breakLine: last || undefined,
         },
       });
