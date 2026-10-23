@@ -710,8 +710,39 @@ async function notesOf(pkg: Package, slidePart: string): Promise<string> {
   return kids(kid(body, 'txBody'), 'p').map(p => [...p.getElementsByTagName('*')].filter(e => e.localName === 't').map(t => t.textContent).join('')).join('\n').trim();
 }
 
+const PUSH_DIR: Record<string, string> = { l: 'slide-left', r: 'slide-right', u: 'slide-up', d: 'slide-down' };
+
+/** Map PowerPoint transitions onto SlideCraft's set (unknown effects become a fade) */
+function readTransition(sld: El): { transition: string; transitionDuration: number } {
+  // PowerPoint 2010+ wraps transitions in mc:AlternateContent; prefer the richer Choice
+  const alt = kids(sld, 'AlternateContent').find(a => desc(a, 'transition'));
+  const el = kid(sld, 'transition') ?? (alt ? desc(kid(alt, 'Choice') ?? alt, 'transition') : null);
+  if (!el) return { transition: 'none', transitionDuration: 0.5 };
+  const effect = el.firstElementChild;
+  let transition = 'fade';
+  if (effect) {
+    const dir = attr(effect, 'dir') ?? 'l';
+    switch (effect.localName) {
+      case 'push': case 'cover': case 'pull': case 'wipe': case 'reveal': case 'pan': transition = PUSH_DIR[dir] ?? 'slide-left'; break;
+      case 'zoom': case 'warp': case 'flythrough': transition = dir === 'out' ? 'zoom-out' : 'zoom-in'; break;
+    }
+  }
+  let durMs: number | null = null;
+  for (const a of el.attributes) if (a.localName === 'dur') durMs = Number(a.value);
+  const spd = attr(el, 'spd') ?? 'med';
+  const transitionDuration = durMs ? Math.min(5, Math.max(0.1, durMs / 1000)) : spd === 'fast' ? 0.5 : spd === 'slow' ? 1 : 0.75;
+  return { transition, transitionDuration };
+}
+
+/** SlideCraft stores the deck theme as a custom document property */
+async function readThemeName(pkg: Package): Promise<string | undefined> {
+  const doc = await pkg.doc('docProps/custom.xml');
+  const prop = [...(doc?.getElementsByTagName('*') ?? [])].find(e => e.localName === 'property' && e.getAttribute('name') === 'SlideCraftTheme');
+  return prop?.textContent?.trim() || undefined;
+}
+
 export interface PptxImportResult {
-  deck: { title: string; slides: Record<string, unknown>[] };
+  deck: { title: string; themeName?: string; slides: Record<string, unknown>[] };
   warnings: string[];
 }
 
@@ -792,13 +823,12 @@ export async function pptxToDeck(data: ArrayBuffer | Blob | Uint8Array, fileName
     }
     await parseTree(path(doc.documentElement, 'cSld', 'spTree'), xf, ctx);
 
-    const transitionEl = kid(doc.documentElement, 'transition');
-    const transition = transitionEl ? (kid(transitionEl, 'push') || kid(transitionEl, 'wipe') ? 'slide-left' : kid(transitionEl, 'zoom') ? 'zoom-in' : 'fade') : 'none';
+    const { transition, transitionDuration } = readTransition(doc.documentElement);
 
     slides.push({
       ...bg,
       transition,
-      transitionDuration: 0.5,
+      transitionDuration,
       notes: await notesOf(pkg, part),
       objects: ctx.out.map(o => ({ ...o, x: Math.round(o.x as number), y: Math.round(o.y as number), w: Math.round(o.w as number), h: Math.round(o.h as number) })),
     });
@@ -809,5 +839,5 @@ export async function pptxToDeck(data: ArrayBuffer | Blob | Uint8Array, fileName
   const core = await pkg.doc('docProps/core.xml');
   const docTitle = [...(core?.getElementsByTagName('*') ?? [])].find(e => e.localName === 'title')?.textContent?.trim();
   const title = docTitle || fileName.replace(/\.pptx$/i, '');
-  return { deck: { title, slides }, warnings: [...warnings] };
+  return { deck: { title, themeName: await readThemeName(pkg), slides }, warnings: [...warnings] };
 }

@@ -1,4 +1,5 @@
 /* Rich text helpers: text objects store a small, sanitized subset of HTML. */
+import { fontStack } from './fonts';
 
 const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'SPAN', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'SUB', 'SUP']);
 const ALLOWED_STYLES = ['color', 'font-size', 'font-family', 'font-weight', 'font-style', 'text-decoration', 'background-color'];
@@ -148,7 +149,7 @@ export function paragraphsToHtml(paragraphs: Paragraph[], defaults: { color?: st
     const styles: string[] = [];
     if (r.color && r.color.toLowerCase() !== defaults.color?.toLowerCase()) styles.push(`color: ${r.color}`);
     if (r.fontSize && Math.abs(r.fontSize - (defaults.fontSize ?? 0)) > 0.5) styles.push(`font-size: ${Math.round(r.fontSize)}px`);
-    if (r.fontFamily && r.fontFamily !== defaults.fontFamily) styles.push(`font-family: '${r.fontFamily}'`);
+    if (r.fontFamily && r.fontFamily !== defaults.fontFamily) styles.push(`font-family: ${fontStack(r.fontFamily)}`);
     if (styles.length) html = `<span style="${styles.join('; ')}">${html}</span>`;
     if (r.bold) html = `<b>${html}</b>`;
     if (r.italic) html = `<i>${html}</i>`;

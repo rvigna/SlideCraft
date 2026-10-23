@@ -1,6 +1,7 @@
 import { memo, type CSSProperties, type ReactNode } from 'react';
 import type { ShapeObject, ShapeType, Slide, SlideObject } from '../model/types';
 import { ICONS } from '../model/icons';
+import { fontStack } from '../model/fonts';
 
 export const SHADOWS: Record<string, string> = {
   sm: '0 1px 3px rgba(0,0,0,0.15)',
@@ -89,7 +90,7 @@ export function objectBoxStyle(obj: SlideObject): CSSProperties {
 
 export function textStyle(obj: Extract<SlideObject, { type: 'text' | 'shape' }>): CSSProperties {
   return {
-    fontFamily: `'${obj.fontFamily}', 'IBM Plex Sans', sans-serif`,
+    fontFamily: fontStack(obj.fontFamily),
     fontSize: obj.fontSize,
     fontWeight: obj.fontWeight as CSSProperties['fontWeight'],
     fontStyle: obj.fontStyle,

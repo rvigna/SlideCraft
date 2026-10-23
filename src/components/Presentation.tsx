@@ -90,6 +90,9 @@ function PresentationView({ presenter }: { presenter: boolean }) {
   const [idle, setIdle] = useState(false);
   const [popup, setPopup] = useState<Window | null>(null);
   const [startedAt, setStartedAt] = useState(Date.now());
+  // Presenter mode: the browser won't stay full screen while the notes window opens,
+  // so the audience window asks for one click (move it to the projector first)
+  const [askFullscreen, setAskFullscreen] = useState(presenter);
   const jump = useRef('');
   const rootRef = useRef<HTMLDivElement>(null);
   const enteredFullscreen = useRef(false);
@@ -174,13 +177,27 @@ function PresentationView({ presenter }: { presenter: boolean }) {
       className={`sc-show${idle ? ' is-idle' : ''}`}
       tabIndex={-1}
       role="presentation"
-      onClick={e => { if (!(e.target as HTMLElement).closest('.sc-show-controls')) go(Math.min(slides.length - 1, index + 1)); }}
+      onClick={e => {
+        if (askFullscreen) {
+          setAskFullscreen(false);
+          document.documentElement.requestFullscreen?.().catch(() => {});
+          return;
+        }
+        if (!(e.target as HTMLElement).closest('.sc-show-controls')) go(Math.min(slides.length - 1, index + 1));
+      }}
       onContextMenu={e => { e.preventDefault(); go(Math.max(0, index - 1)); }}
     >
       <div key={`${slide.id}-${index}`} className={`sc-show-slide ${transition}`} style={{ width: 960 * scale, height: 540 * scale, animationDuration: `${slide.transitionDuration}s` }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }}><SlideStage slide={slide} /></div>
       </div>
       {blank && <div className={`sc-show-blank is-${blank}`} />}
+      {askFullscreen && (
+        <div className="sc-show-fsprompt" role="button">
+          <Maximize size={32} />
+          <strong>Click to go full screen</strong>
+          <span>Move this window to the projector or second display first. Your notes and timer are in the presenter window.</span>
+        </div>
+      )}
       <div className="sc-show-progress" style={{ width: `${((index + 1) / slides.length) * 100}%` }} />
       <div className="sc-show-controls">
         <button aria-label="Previous slide" onClick={() => go(Math.max(0, index - 1))}><ChevronLeft size={20} /></button>

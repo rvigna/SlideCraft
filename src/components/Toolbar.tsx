@@ -20,7 +20,7 @@ import { arrangeItems, MOD } from './menus';
 export const FONTS = [
   'IBM Plex Sans', 'IBM Plex Serif', 'IBM Plex Mono', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
   'Poppins', 'Playfair Display', 'Source Code Pro', 'Arial', 'Helvetica', 'Georgia', 'Times New Roman',
-  'Verdana', 'Courier New',
+  'Verdana', 'Courier New', 'Calibri', 'Cambria', 'Aptos',
 ];
 
 const SHAPES: { type: ShapeType; label: string }[] = [

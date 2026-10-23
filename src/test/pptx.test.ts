@@ -75,6 +75,33 @@ describe('PPTX export → import round trip', () => {
     expect(svg).not.toContain('currentColor');
   });
 
+  it('round-trips the deck theme and slide transitions', async () => {
+    const src = sampleDeck();
+    src.themeName = 'Midnight';
+    src.slides[0].transition = 'fade';
+    src.slides[0].transitionDuration = 0.5;
+    src.slides[1].transition = 'slide-up';
+    src.slides[1].transitionDuration = 1;
+    const buf = await deckToPptxArrayBuffer(src);
+    const zip = await JSZip.loadAsync(buf);
+    const xml = await zip.file('ppt/slides/slide2.xml')!.async('string');
+    expect(xml).toMatch(/<p:transition spd="slow"><p:push dir="u"\/><\/p:transition>/);
+    // Transition must precede p:timing / extLst per the schema
+    expect(xml.indexOf('<p:transition')).toBeGreaterThan(xml.indexOf('</p:clrMapOvr>'));
+    const deck = normalizeDeck((await pptxToDeck(buf)).deck);
+    expect(deck.themeName).toBe('Midnight');
+    expect(deck.slides.map(s => [s.transition, s.transitionDuration])).toEqual([['fade', 0.5], ['slide-up', 1]]);
+  });
+
+  it('keeps nested bullet levels', async () => {
+    const src = sampleDeck();
+    const list = src.slides[1].objects[1] as TextObject;
+    list.text = '<ul><li>Top<ul><li>Nested</li></ul></li></ul>';
+    const deck = normalizeDeck((await pptxToDeck(await deckToPptxArrayBuffer(src))).deck);
+    const back = deck.slides[1].objects.find((o): o is TextObject => o.type === 'text' && o.text.includes('Nested'))!;
+    expect(back.text).toBe('<ul><li>Top<ul><li>Nested</li></ul></li></ul>');
+  });
+
   it('rejects files that are not presentations', async () => {
     await expect(pptxToDeck(new Uint8Array([1, 2, 3]))).rejects.toThrow(/not a valid PowerPoint/);
   });

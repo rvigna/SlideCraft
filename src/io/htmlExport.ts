@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { Deck } from '../model/types';
 import { escapeHtml } from '../model/richtext';
 import { SlideStage } from '../components/SlideObjectView';
+import { GOOGLE_FONTS_URL } from '../model/fonts';
 
-const FONTS = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800;900&family=Lato:wght@300;400;700;900&family=Montserrat:wght@300;400;500;600;700;800;900&family=Open+Sans:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Source+Code+Pro:wght@400;500&display=swap';
 
 export function deckToHtml(deck: Deck): string {
   const slides = deck.slides.map((slide, i) => {
@@ -20,7 +20,7 @@ export function deckToHtml(deck: Deck): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(deck.title)}</title>
 <meta name="generator" content="SlideCraft">
-<link href="${FONTS}" rel="stylesheet">
+<link href="${GOOGLE_FONTS_URL}" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#000;overflow:hidden;font-family:'IBM Plex Sans',sans-serif}

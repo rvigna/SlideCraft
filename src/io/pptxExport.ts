@@ -1,5 +1,6 @@
 /* Export a deck to PowerPoint (.pptx) with PptxGenJS. */
 import PptxGenJS from 'pptxgenjs';
+import JSZip from 'jszip';
 import type { Deck, ShapeObject, Slide, SlideObject, TextObject } from '../model/types';
 import { SLIDE_W } from '../model/types';
 import { alphaOf, toHex6 } from '../model/color';
@@ -174,6 +175,58 @@ async function addObject(pptx: PptxGenJS, ps: PptxGenJS.Slide, o: SlideObject, w
 
 export interface PptxExportResult { blob: Blob; warnings: string[] }
 
+const TRANSITION_XML: Record<string, string> = {
+  fade: '<p:fade/>',
+  'slide-left': '<p:push dir="l"/>',
+  'slide-right': '<p:push dir="r"/>',
+  'slide-up': '<p:push dir="u"/>',
+  'slide-down': '<p:push dir="d"/>',
+  'zoom-in': '<p:zoom/>',
+  'zoom-out': '<p:zoom dir="out"/>',
+};
+
+const xmlEscape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * PptxGenJS can't write transitions or custom properties, so patch the package:
+ * native <p:transition> per slide, and the deck theme as a custom document property.
+ */
+async function finalizePackage(data: ArrayBuffer, deck: Deck): Promise<JSZip> {
+  const zip = await JSZip.loadAsync(data);
+  for (const [i, slide] of deck.slides.entries()) {
+    const effect = TRANSITION_XML[slide.transition];
+    const part = zip.file(`ppt/slides/slide${i + 1}.xml`);
+    if (!effect || !part) continue;
+    const spd = slide.transitionDuration <= 0.5 ? 'fast' : slide.transitionDuration <= 0.8 ? 'med' : 'slow';
+    let xml = await part.async('string');
+    const tag = `<p:transition spd="${spd}">${effect}</p:transition>`;
+    // Schema order: cSld, clrMapOvr, transition, timing, extLst
+    const at = ['<p:timing', '<p:extLst', '</p:sld>'].map(m => xml.indexOf(m)).find(n => n >= 0)!;
+    xml = xml.slice(0, at) + tag + xml.slice(at);
+    zip.file(`ppt/slides/slide${i + 1}.xml`, xml);
+  }
+
+  zip.file('docProps/custom.xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
+    `<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="2" name="${THEME_PROPERTY}"><vt:lpwstr>${xmlEscape(deck.themeName)}</vt:lpwstr></property>` +
+    '</Properties>');
+  const types = await zip.file('[Content_Types].xml')!.async('string');
+  if (!types.includes('/docProps/custom.xml')) {
+    zip.file('[Content_Types].xml', types.replace('</Types>',
+      '<Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/></Types>'));
+  }
+  const rels = await zip.file('_rels/.rels')!.async('string');
+  if (!rels.includes('docProps/custom.xml')) {
+    zip.file('_rels/.rels', rels.replace('</Relationships>',
+      '<Relationship Id="rIdSlideCraftCustom" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/></Relationships>'));
+  }
+  return zip;
+}
+
+export const THEME_PROPERTY = 'SlideCraftTheme';
+const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
 async function buildPptx(deck: Deck) {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
@@ -199,11 +252,13 @@ async function buildPptx(deck: Deck) {
 
 export async function deckToPptx(deck: Deck): Promise<PptxExportResult> {
   const { pptx, warnings } = await buildPptx(deck);
-  return { blob: (await pptx.write({ outputType: 'blob' })) as Blob, warnings };
+  const zip = await finalizePackage((await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer, deck);
+  return { blob: await zip.generateAsync({ type: 'blob', mimeType: PPTX_MIME, compression: 'DEFLATE' }), warnings };
 }
 
 /** Node-friendly variant (used by the round-trip tests) */
 export async function deckToPptxArrayBuffer(deck: Deck): Promise<ArrayBuffer> {
   const { pptx } = await buildPptx(deck);
-  return (await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer;
+  const zip = await finalizePackage((await pptx.write({ outputType: 'arraybuffer' })) as ArrayBuffer, deck);
+  return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
 }
