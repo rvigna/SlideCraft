@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Close, Maximize, Reset } from '@carbon/icons-react';
 import { exitPresentation, setPresentationIndex, toast, useEditor } from '../store/editor';
 import { SlideStage } from './SlideObjectView';
+import { AnimatedSlide } from './AnimatedSlide';
+import { buildSteps } from '../model/motion';
 
 function useWindowSize(win: Window | null = window) {
   const [size, setSize] = useState(() => ({ w: win?.innerWidth ?? 1280, h: win?.innerHeight ?? 720 }));
@@ -97,8 +99,34 @@ function PresentationView({ presenter }: { presenter: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const enteredFullscreen = useRef(false);
   const slide = slides[Math.min(index, slides.length - 1)];
+  // Click builds on the current slide; arriving backwards shows the slide already built
+  const [step, setStep] = useState(0);
+  const [arrivedBack, setArrivedBack] = useState(false);
+  const stepRef = useRef(0);
+  stepRef.current = step;
+  const totalSteps = useMemo(() => buildSteps(slide).length, [slide]);
 
-  const go = useCallback((i: number) => { setBlank(null); setPresentationIndex(i); }, []);
+  const go = useCallback((i: number, back = false) => {
+    const all = useEditor.getState().deck.slides;
+    setBlank(null);
+    setArrivedBack(back);
+    setStep(back && all[i] ? buildSteps(all[i]).length : 0);
+    setPresentationIndex(i);
+  }, []);
+
+  /** → / Space / click: reveal the next build, or move to the next slide */
+  const next = useCallback(() => {
+    const st = useEditor.getState();
+    const i = st.presentation?.index ?? 0;
+    if (stepRef.current < buildSteps(st.deck.slides[i]).length) { setBlank(null); setArrivedBack(false); setStep(s => s + 1); return; }
+    if (i < st.deck.slides.length - 1) go(i + 1);
+  }, [go]);
+
+  const prev = useCallback(() => {
+    const i = useEditor.getState().presentation?.index ?? 0;
+    if (stepRef.current > 0) { setStep(s => s - 1); return; }
+    if (i > 0) go(i - 1, true);
+  }, [go]);
   const exit = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     exitPresentation();
@@ -135,24 +163,22 @@ function PresentationView({ presenter }: { presenter: boolean }) {
   }, [presenter]);
 
   const onKey = useCallback((e: KeyboardEvent) => {
-    const st = useEditor.getState();
-    const i = st.presentation?.index ?? 0;
-    const n = st.deck.slides.length;
+    const n = useEditor.getState().deck.slides.length;
     if (/^\d$/.test(e.key)) { jump.current += e.key; return; }
     if (e.key === 'Enter' && jump.current) { go(Math.min(n, parseInt(jump.current)) - 1); jump.current = ''; e.preventDefault(); return; }
     jump.current = '';
     switch (e.key) {
       case 'ArrowRight': case 'ArrowDown': case 'PageDown': case ' ': case 'Enter': case 'n':
-        e.preventDefault(); if (i < n - 1) go(i + 1); break;
+        e.preventDefault(); next(); break;
       case 'ArrowLeft': case 'ArrowUp': case 'PageUp': case 'Backspace': case 'p':
-        e.preventDefault(); if (i > 0) go(i - 1); break;
+        e.preventDefault(); prev(); break;
       case 'Home': go(0); break;
       case 'End': go(n - 1); break;
       case 'b': case 'B': case '.': setBlank(b => (b === 'black' ? null : 'black')); break;
       case 'w': case 'W': case ',': setBlank(b => (b === 'white' ? null : 'white')); break;
       case 'Escape': e.preventDefault(); exit(); break;
     }
-  }, [exit, go]);
+  }, [exit, go, next, prev]);
 
   useEffect(() => {
     window.addEventListener('keydown', onKey);
@@ -183,12 +209,12 @@ function PresentationView({ presenter }: { presenter: boolean }) {
           document.documentElement.requestFullscreen?.().catch(() => {});
           return;
         }
-        if (!(e.target as HTMLElement).closest('.sc-show-controls')) go(Math.min(slides.length - 1, index + 1));
+        if (!(e.target as HTMLElement).closest('.sc-show-controls')) next();
       }}
-      onContextMenu={e => { e.preventDefault(); go(Math.max(0, index - 1)); }}
+      onContextMenu={e => { e.preventDefault(); prev(); }}
     >
-      <div key={`${slide.id}-${index}`} className={`sc-show-slide ${transition}`} style={{ width: 960 * scale, height: 540 * scale, animationDuration: `${slide.transitionDuration}s` }}>
-        <div style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }}><SlideStage slide={slide} /></div>
+      <div key={`${slide.id}-${index}`} className={`sc-show-slide ${arrivedBack ? '' : transition}`} style={{ width: 960 * scale, height: 540 * scale, animationDuration: `${slide.transitionDuration}s` }}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }}><AnimatedSlide slide={slide} step={step} still={arrivedBack} /></div>
       </div>
       {blank && <div className={`sc-show-blank is-${blank}`} />}
       {askFullscreen && (
@@ -200,9 +226,9 @@ function PresentationView({ presenter }: { presenter: boolean }) {
       )}
       <div className="sc-show-progress" style={{ width: `${((index + 1) / slides.length) * 100}%` }} />
       <div className="sc-show-controls">
-        <button aria-label="Previous slide" onClick={() => go(Math.max(0, index - 1))}><ChevronLeft size={20} /></button>
-        <span>{index + 1} / {slides.length}</span>
-        <button aria-label="Next slide" onClick={() => go(Math.min(slides.length - 1, index + 1))}><ChevronRight size={20} /></button>
+        <button aria-label="Previous" onClick={prev}><ChevronLeft size={20} /></button>
+        <span>{index + 1} / {slides.length}{totalSteps ? ` · ${step}/${totalSteps}` : ''}</span>
+        <button aria-label="Next" onClick={next}><ChevronRight size={20} /></button>
         <button aria-label="Toggle full screen" onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}><Maximize size={20} /></button>
         <button aria-label="End presentation" onClick={exit}><Close size={20} /></button>
       </div>

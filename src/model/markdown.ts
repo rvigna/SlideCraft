@@ -33,6 +33,7 @@ import { htmlToParagraphs, htmlToPlain, paragraphsToHtml, type Paragraph, type T
 import { seriesColor, tableColors } from './palette';
 import { estimateTextHeight } from './lint';
 import { LAYOUTS } from './layouts';
+import { applyMotionToSlide, MOTION_PRESETS } from './motion';
 
 // ---------------------------------------------------------------
 // Inline formatting
@@ -340,6 +341,9 @@ export function markdownToDeck(md: string): Deck {
   const ids = new IdSource(1);
   const parsed = splitSlides(body).map(parseSlide);
   const slides = parsed.map((p, i) => buildSlide(p, i, ids, theme));
+  // "motion: subtle" (or smooth, focus, lively) in the front matter animates the whole deck
+  const motion = MOTION_PRESETS.find(m => m.id === (meta.motion ?? '').toLowerCase());
+  if (motion) slides.forEach(s => applyMotionToSlide(s, { preset: motion.id, scope: 'all', slideIndex: 0, animateContent: true, revealOnClick: /click/i.test(meta.motion ?? '') || meta.reveal === 'click', speed: 'normal' }));
   const firstH1 = parsed[0]?.blocks.find(b => b.kind === 'h1') as { text: string } | undefined;
   return {
     title: meta.title || (firstH1 ? firstH1.text.replace(/[*_`~]/g, '') : 'Untitled Presentation'),

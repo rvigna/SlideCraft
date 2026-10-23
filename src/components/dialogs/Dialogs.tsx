@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { deckToMarkdown, markdownToDeck } from '../../model/markdown';
 import { Button, Checkbox, ClickableTile, Modal, Select, SelectItem, TextInput } from '@carbon/react';
 import { ChartView } from '../ChartView';
+import { MotionWizard } from './MotionWizard';
 import { seriesColor } from '../../model/palette';
 import { Upload } from '@carbon/icons-react';
 import { closeDialog, useUi } from '../../store/ui';
@@ -356,6 +357,7 @@ export function Dialogs() {
     case 'new': return <NewDialog />;
     case 'chart': return <ChartDialog />;
     case 'markdown': return <MarkdownDialog />;
+    case 'motion': return <MotionWizard />;
     default: return null;
   }
 }

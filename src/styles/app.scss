@@ -19,6 +19,8 @@
 @use '@carbon/react/scss/components/notification';
 @use '@carbon/react/scss/components/number-input';
 @use '@carbon/react/scss/components/popover';
+@use '@carbon/react/scss/components/progress-indicator';
+@use '@carbon/react/scss/components/radio-button';
 @use '@carbon/react/scss/components/search';
 @use '@carbon/react/scss/components/select';
 @use '@carbon/react/scss/components/slider';
@@ -258,6 +260,7 @@ body { background: $background; }
 .sc-status { padding-left: $spacing-02; }
 @media (max-width: 900px) { .sc-status-wide, .sc-zoom-slider { display: none; } }
 .sc-prop-tip { padding: $spacing-05; }
+.sc-full-btn { max-width: none; width: 100%; }
 .sc-zoom { display: flex; align-items: center; gap: $spacing-02; }
 .sc-zoom-slider { .cds--slider { min-width: 100px; width: 120px; } .cds--slider__range-label { display: none; } }
 .sc-zoom-level { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -335,6 +338,29 @@ body { background: $background; }
 .sc-trans-slide-down { animation-name: sc-slide-down; }
 .sc-trans-zoom-in { animation-name: sc-zoom-in; }
 .sc-trans-zoom-out { animation-name: sc-zoom-out; }
+.sc-trans-rise { animation-name: sc-rise; }
+.sc-trans-soft-zoom { animation-name: sc-soft-zoom; }
+@keyframes sc-rise { from { opacity: 0; translate: 0 3%; } }
+@keyframes sc-soft-zoom { from { opacity: 0; scale: .97; } }
+
+// Entrance animations for slide content. Individual translate/scale properties
+// leave an object's own rotate() transform alone.
+.sc-anim { animation-fill-mode: both; animation-timing-function: cubic-bezier(0, 0, 0.38, 0.9); }
+.sc-anim-fade { animation-name: sc-in-fade; }
+.sc-anim-rise { animation-name: sc-in-rise; }
+.sc-anim-zoom { animation-name: sc-in-zoom; }
+.sc-anim-wipe { animation-name: sc-in-wipe; }
+@keyframes sc-in-fade { from { opacity: 0; } }
+@keyframes sc-in-rise { from { opacity: 0; translate: 0 16px; } }
+@keyframes sc-in-zoom { from { opacity: 0; scale: 1.06; } }
+@keyframes sc-in-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+li.sc-anim { display: list-item; }
+.sc-hidden { visibility: hidden; }
+
+// Respect the OS "reduce motion" setting: everything appears immediately
+@media (prefers-reduced-motion: reduce) {
+  .sc-show-slide, .sc-anim, .sc-motion-preview * { animation-duration: 1ms !important; animation-delay: 0s !important; }
+}
 @keyframes sc-fade { from { opacity: 0; } }
 @keyframes sc-slide-left { from { transform: translateX(100%); } }
 @keyframes sc-slide-right { from { transform: translateX(-100%); } }
@@ -422,3 +448,24 @@ body { background: $background; }
 }
 .sc-md-preview { width: 236px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; gap: $spacing-04; }
 .sc-md-thumb { display: flex; gap: $spacing-03; span { @include type-style('label-01'); color: $text-secondary; width: 20px; text-align: right; } > div { box-shadow: 0 0 0 1px $border-subtle-01; } }
+
+// ---------------------------------------------------------------
+// Motion wizard
+// ---------------------------------------------------------------
+.sc-motion .cds--modal-container { max-width: 1040px; }
+.sc-motion-steps { margin-bottom: $spacing-06; }
+.sc-motion-preview { overflow: hidden; background: #000; box-shadow: 0 0 0 1px $border-subtle-01; flex-shrink: 0; }
+.sc-motion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: $spacing-04; }
+.sc-motion-card {
+  display: flex; flex-direction: column; gap: $spacing-03; padding: $spacing-04; text-align: left; cursor: pointer;
+  background: $layer-02; border: 1px solid $border-subtle-01; color: $text-primary;
+  strong { @include type-style('heading-compact-01'); }
+  span { @include type-style('helper-text-01'); color: $text-secondary; }
+  &:hover { background: $layer-hover-02; }
+  &:focus-visible { outline: 2px solid $focus; outline-offset: -2px; }
+  &.is-selected { outline: 2px solid $border-interactive; outline-offset: -2px; background: $layer-selected-02; }
+}
+.sc-motion-options { display: flex; gap: $spacing-07; flex-wrap: wrap; align-items: flex-start; }
+.sc-motion-fields { flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: $spacing-06; }
+.sc-motion-final { display: flex; gap: $spacing-06; flex-wrap: wrap; align-items: flex-start; }
+.sc-motion-summary { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: $spacing-04; p:first-child { @include type-style('body-02'); } }

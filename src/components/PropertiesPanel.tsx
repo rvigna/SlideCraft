@@ -1,12 +1,12 @@
 import { Button, Checkbox, IconButton, Select, SelectItem, Slider, TextArea } from '@carbon/react';
-import { Add, ChartBar, Subtract } from '@carbon/icons-react';
+import { Add, ChartBar, Movement, Subtract } from '@carbon/icons-react';
 import { addTableColumn, addTableRow, removeTableColumn, removeTableRow } from './objectOps';
 import { contrastText } from '../model/color';
 import {
   AlignHorizontalCenter, AlignHorizontalLeft, AlignHorizontalRight, AlignVerticalBottom, AlignVerticalCenter,
   AlignVerticalTop, ColorPalette, DistributeHorizontalCenter, DistributeVerticalCenter, Image as ImageIcon, Template,
 } from '@carbon/icons-react';
-import type { BorderStyle, ChartType, ObjectFit, Shadow, Transition, VerticalAlign } from '../model/types';
+import type { BorderStyle, ChartType, EntranceEffect, ObjectFit, Shadow, Transition, VerticalAlign } from '../model/types';
 import * as ed from '../store/editor';
 import { endCoalesce } from '../store/editor';
 import { openDialog } from '../store/ui';
@@ -16,6 +16,7 @@ import type { AlignMode } from '../model/geometry';
 
 const TRANSITIONS: { value: Transition; label: string }[] = [
   { value: 'none', label: 'None' }, { value: 'fade', label: 'Fade' },
+  { value: 'rise', label: 'Rise (subtle)' }, { value: 'soft-zoom', label: 'Soft zoom (subtle)' },
   { value: 'slide-left', label: 'Slide left' }, { value: 'slide-right', label: 'Slide right' },
   { value: 'slide-up', label: 'Slide up' }, { value: 'slide-down', label: 'Slide down' },
   { value: 'zoom-in', label: 'Zoom in' }, { value: 'zoom-out', label: 'Zoom out' },
@@ -146,6 +147,37 @@ function ObjectProperties() {
         </Section>
       )}
 
+      <Section title="Animation" aside={obj.animation ? <span className="sc-prop-badge">{obj.animation.onClick ? 'on click' : 'with slide'}</span> : null}>
+        <div className="sc-prop-grid">
+          <Select id="sc-anim-effect" size="sm" labelText="Entrance" value={obj.animation?.effect ?? 'none'}
+            onChange={e => {
+              const effect = e.target.value;
+              ed.commitSelection(o => {
+                if (effect === 'none') { delete o.animation; return; }
+                o.animation = { duration: 0.5, delay: 0, onClick: false, ...o.animation, effect: effect as EntranceEffect };
+                if (o.type === 'text' && /<li>/.test(o.text) && o.animation.byParagraph == null) o.animation.byParagraph = true;
+              });
+            }}>
+            <SelectItem value="none" text="None" /><SelectItem value="fade" text="Fade in" /><SelectItem value="rise" text="Rise" />
+            <SelectItem value="zoom" text="Zoom in" /><SelectItem value="wipe" text="Wipe" />
+          </Select>
+          <NumField label="Duration (s)" value={obj.animation?.duration ?? 0.5} min={0.1} max={5} step={0.1} disabled={!obj.animation}
+            onCommit={v => ed.commitSelection(o => { if (o.animation) o.animation.duration = v; })} />
+          <NumField label="Delay (s)" value={obj.animation?.delay ?? 0} min={0} max={10} step={0.1} disabled={!obj.animation}
+            onCommit={v => ed.commitSelection(o => { if (o.animation) o.animation.delay = v; })} />
+        </div>
+        {obj.animation && (
+          <>
+            <Checkbox id="sc-anim-click" labelText="Wait for a click" checked={obj.animation.onClick}
+              onChange={(_, { checked }) => ed.commitSelection(o => { if (o.animation) o.animation.onClick = checked; })} />
+            {obj.type === 'text' && /<li>/.test(obj.text) && (
+              <Checkbox id="sc-anim-para" labelText="One bullet at a time" checked={!!obj.animation.byParagraph}
+                onChange={(_, { checked }) => ed.commitSelection(o => { if (o.animation) o.animation.byParagraph = checked; })} />
+            )}
+          </>
+        )}
+      </Section>
+
       {obj.type === 'image' && (
         <Section title="Image">
           <div className="sc-prop-grid">
@@ -173,7 +205,8 @@ function SlideProperties() {
           <Button kind="tertiary" size="sm" renderIcon={Template} onClick={() => openDialog('layout', index)}>Layout</Button>
         </div>
       </Section>
-      <Section title="Transition">
+      <Section title="Motion">
+        <Button kind="primary" size="sm" renderIcon={Movement} className="sc-full-btn" onClick={() => openDialog('motion')}>Motion wizard…</Button>
         <div className="sc-prop-grid">
           <Select id="sc-transition" size="sm" labelText="Effect" value={slide.transition}
             onChange={e => ed.commitSlide(s => { s.transition = e.target.value as Transition; })}>

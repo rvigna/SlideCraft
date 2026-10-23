@@ -8,6 +8,7 @@ import { htmlToPlain, sanitizeHtml, plainToHtml } from '../model/richtext';
 import { lintDeck, fixIssue, RULES } from '../model/lint';
 import { lintContext } from '../components/lintActions';
 import { newSlideId } from '../model/factory';
+import { applyMotion, MOTION_PRESETS, type MotionOptions } from '../model/motion';
 
 /** Report of what the assistant changed, shown in the chat */
 export type Activity = (summary: string) => void;
@@ -236,6 +237,30 @@ export function buildTools(activity: Activity) {
         ed.applyTheme(String(name));
         activity(`Applied the ${name} theme`);
         return `Theme set to ${name}.`;
+      },
+    }),
+    betaTool({
+      name: 'set_motion',
+      description: 'Add slide transitions and entrance animations with a preset: subtle (soft fade, content drifts up — the tasteful default), smooth, focus, lively, or none to remove all motion. Optionally reveal bullets one per click.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          preset: { type: 'string', enum: MOTION_PRESETS.map(p => p.id) },
+          slide: { type: 'integer', description: 'Only this slide (numbered from 1); omit for every slide' },
+          reveal_on_click: { type: 'boolean' },
+          speed: { type: 'string', enum: ['slow', 'normal', 'fast'] },
+        },
+        required: ['preset'],
+        additionalProperties: false,
+      },
+      run: ({ preset, slide, reveal_on_click, speed }) => {
+        const index = slide != null ? slideIndex(slide) : ed.useEditor.getState().slideIndex;
+        let n = 0;
+        ed.commit(d => {
+          n = applyMotion(d as Deck, { preset: preset as MotionOptions['preset'], scope: slide != null ? 'current' : 'all', slideIndex: index, animateContent: true, revealOnClick: !!reveal_on_click, speed: (speed as MotionOptions['speed']) ?? 'normal' });
+        });
+        activity(`Applied ${preset} motion to ${n} slide${n !== 1 ? 's' : ''}`);
+        return `Motion set on ${n} slide(s).`;
       },
     }),
     betaTool({

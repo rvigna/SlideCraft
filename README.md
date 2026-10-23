@@ -25,6 +25,7 @@ Write presentations in Markdown. Open them with File › Open Markdown, edit the
 ---
 title: Q3 Business Review
 theme: Carbon Dark
+motion: subtle
 ---
 
 # Q3 Business Review
@@ -99,7 +100,17 @@ slidecraft lint deck.pptx --fix -o fixed.pptx    # apply the automatic fixes
 - **9 deck themes** (Carbon, Carbon Dark, Classic, Midnight, Aurora, Sunset, Forest, Editorial, Terminal). A theme restyles every slide; new slides and layouts follow it.
 - **9 layouts** with live previews: title, title + content, two columns, image + text, section header, big number, three points and quote.
 - Slide backgrounds can be a color, a gradient or an image, for one slide or all of them.
-- Per-slide transitions: fade, slide and zoom.
+- Per-slide transitions: fade, rise, soft zoom, slide, wipe and zoom.
+
+### Transitions & animation
+**Slide › Transitions & Animation…** (or the toolbar's motion button when nothing is selected) opens the **motion wizard**. It has three steps:
+1. **Style**: pick a preset. Each card shows a live preview. *Subtle* (fade with a gentle rise), *Smooth*, *Focus* (soft zoom), *Lively*, or *None* to clear everything.
+2. **Options**: apply to this slide or the whole deck, animate the content as well as the slide, reveal bullets one click at a time, and set the speed (relaxed / normal / brisk).
+3. **Preview**: watch it on your slide, then **Apply**. The whole change is one undo step.
+
+Objects enter in reading order: the title first, then the content from top to bottom with a short stagger. You can fine-tune any object in the Properties panel under **Animation**: effect, duration, delay, *wait for a click* and *one bullet at a time*. In the slideshow, click "builds" step through before the next slide, and the counter shows the step (e.g. `2 / 8 · 1/4`). The HTML export plays the same animations. Both honour the system's *reduce motion* setting.
+
+In Markdown, add `motion: subtle` to the front matter. The assistant can do it too: "make the transitions subtle". From the console: `slidecraft.applyMotion('subtle', { scope: 'all', revealOnClick: true })`. PowerPoint export keeps slide transitions; rise and soft zoom map to fade and zoom. Object entrance animations are not exported to PowerPoint yet.
 
 ### Presenting
 - **Slideshow** (F5, or ⇧F5 from the beginning): full screen, click or arrow keys to advance, `B`/`W` for a black or white screen, number + Enter to jump to a slide, progress bar.
@@ -143,6 +154,7 @@ slidecraft.onChange(deck => console.log(deck.slides.length));
 | Files | `exportPptx()`, `openPptx(url \| Blob \| ArrayBuffer)`, `exportHtml()` (async), `exportJson()`, `save()`, `print()` |
 | Present | `present(i)`, `presenterView(i)`, `next()`, `prev()`, `exitPresentation()` |
 | Design | `lint()`, `fixIssues(keys?)` |
+| Motion | `applyMotion(preset, {scope, slideIndex, animateContent, revealOnClick, speed})` |
 | Markdown | `toMarkdown()`, `fromMarkdown(md)` |
 | AI | `ask(prompt)`, `setApiKey(key)` |
 | Events | `onChange(fn)`, `notify(title, kind)` |

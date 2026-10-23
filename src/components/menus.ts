@@ -4,7 +4,7 @@ import {
   DocumentAdd, DocumentExport, DocumentImport, DocumentPdf, Download, Edit, FitToScreen, FolderOpen, Html,
   Image, Information, Keyboard, Json, Maximize, Paste, Play, Printer, Redo, Save, SendToBack, Shapes, Template,
   TextBold, TextFont, TextItalic, TextUnderline, TrashCan, Undo, ZoomIn, ZoomOut, ColorSwitch, Screen, Copy as CopySlide,
-  ArrowUp, ArrowDown, Add, SelectWindow, Idea, DataTable, ChartColumn, Code, TaskView, MagicWand,
+  ArrowUp, ArrowDown, Add, SelectWindow, Idea, DataTable, ChartColumn, Code, TaskView, MagicWand, Movement,
 } from '@carbon/icons-react';
 import { insertChart, insertTable } from './objectOps';
 import type { MenuItem } from '../store/ui';
@@ -200,6 +200,8 @@ export function menubar(): { id: string; label: string; items: () => MenuItem[] 
     {
       id: 'slide', label: 'Slide', items: () => [
         ...slideItems(ed.useEditor.getState().slideIndex).slice(0, 8),
+        'divider',
+        { label: 'Transitions & Animation…', icon: Movement, onClick: () => openDialog('motion') },
         'divider',
         { label: 'Present from Beginning', icon: Play, shortcut: `${SHIFT}F5`, onClick: () => ed.startPresentation(0) },
         { label: 'Present from Current Slide', icon: Play, shortcut: 'F5', onClick: () => ed.startPresentation() },

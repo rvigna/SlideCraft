@@ -20,6 +20,7 @@ import { seriesColor, tableColors } from './model/palette';
 import { imageSize } from './io/images';
 import { exportJsonFile, printDeck, saveToBrowser } from './io/files';
 import { lintDeck, type LintIssue } from './model/lint';
+import { applyMotion, MOTION_PRESETS, type MotionOptions } from './model/motion';
 import { fixAll, lintContext } from './components/lintActions';
 import { deckToMarkdown, markdownToDeck } from './model/markdown';
 import { safeFileName, downloadBlob } from './io/images';
@@ -264,6 +265,15 @@ export const api = {
   },
   print: () => printDeck(),
 
+  // ---------------- Motion ----------------
+  /** Apply a motion preset ('subtle' | 'smooth' | 'focus' | 'lively' | 'none') as one undo step */
+  applyMotion(preset: MotionOptions['preset'], opts: Partial<Omit<MotionOptions, 'preset'>> = {}): number {
+    if (!MOTION_PRESETS.some(p => p.id === preset)) throw new Error(`slidecraft: unknown motion preset "${preset}". Try: ${MOTION_PRESETS.map(p => p.id).join(', ')}`);
+    let n = 0;
+    ed.commit(d => { n = applyMotion(d, { scope: 'all', slideIndex: ed.useEditor.getState().slideIndex, animateContent: true, revealOnClick: false, speed: 'normal', ...opts, preset }); });
+    return n;
+  },
+
   // ---------------- Design check ----------------
   /** Design issues (overflow, contrast, off-slide, tiny text, fonts, alignment, crowding…) */
   lint: (): LintIssue[] => clone(lintDeck(ed.useEditor.getState().deck, lintContext())),
@@ -323,6 +333,7 @@ OBJECTS   addText(text, opts) · addBullets(['a', ['sub'], 'b']) · addShape(typ
           update(id, patch) · remove(id|ids) · select(ids) · selectAll() · align(mode) · distribute('h'|'v')
           arrange('front'|'back'|'forward'|'backward')
 HISTORY   undo() · redo() · batch(fn)  — batch makes many calls one undo step
+MOTION    applyMotion('subtle' | 'smooth' | 'focus' | 'lively' | 'none', { scope, revealOnClick, speed })
 DESIGN    lint() · fixIssues(keys?)
 MARKDOWN  toMarkdown() · fromMarkdown(md)
 AI        ask(prompt) · setApiKey(key)

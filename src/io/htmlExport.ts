@@ -3,13 +3,13 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { Deck } from '../model/types';
 import { escapeHtml } from '../model/richtext';
-import { SlideStage } from '../components/SlideObjectView';
+import { AnimatedSlide } from '../components/AnimatedSlide';
 import { GOOGLE_FONTS_URL } from '../model/fonts';
 
 
 export function deckToHtml(deck: Deck): string {
   const slides = deck.slides.map((slide, i) => {
-    const markup = renderToStaticMarkup(createElement(SlideStage, { slide }));
+    const markup = renderToStaticMarkup(createElement(AnimatedSlide, { slide, mode: 'auto' }));
     return `<section class="slide" data-index="${i}" data-transition="${slide.transition}" style="--dur:${slide.transitionDuration}s">${markup}</section>`;
   }).join('\n');
 
@@ -32,6 +32,14 @@ html,body{height:100%;background:#000;overflow:hidden;font-family:'IBM Plex Sans
 .slide.t-slide-left{animation:sl var(--dur) ease}.slide.t-slide-right{animation:sr var(--dur) ease}
 .slide.t-slide-up{animation:su var(--dur) ease}.slide.t-slide-down{animation:sd var(--dur) ease}
 .slide.t-zoom-in{animation:zi var(--dur) ease}.slide.t-zoom-out{animation:zo var(--dur) ease}
+.slide.t-rise{animation:ri var(--dur) ease}.slide.t-soft-zoom{animation:sz var(--dur) ease}
+@keyframes ri{from{opacity:0;translate:0 3%}}@keyframes sz{from{opacity:0;scale:.97}}
+.sc-anim{animation-fill-mode:both;animation-timing-function:cubic-bezier(0,0,.38,.9)}
+.sc-anim-fade{animation-name:af}.sc-anim-rise{animation-name:ar}.sc-anim-zoom{animation-name:az}.sc-anim-wipe{animation-name:aw}
+@keyframes af{from{opacity:0}}@keyframes ar{from{opacity:0;translate:0 16px}}@keyframes az{from{opacity:0;scale:1.06}}
+@keyframes aw{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+li.sc-anim{display:list-item}
+@media (prefers-reduced-motion:reduce){.slide,.sc-anim{animation-duration:1ms!important;animation-delay:0s!important}}
 @keyframes fade{from{opacity:0}}
 @keyframes sl{from{translate:100% 0}}@keyframes sr{from{translate:-100% 0}}
 @keyframes su{from{translate:0 100%}}@keyframes sd{from{translate:0 -100%}}

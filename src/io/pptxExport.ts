@@ -227,6 +227,8 @@ export interface PptxExportResult { blob: Blob; warnings: string[] }
 
 const TRANSITION_XML: Record<string, string> = {
   fade: '<p:fade/>',
+  rise: '<p:fade/>',
+  'soft-zoom': '<p:zoom/>',
   'slide-left': '<p:push dir="l"/>',
   'slide-right': '<p:push dir="r"/>',
   'slide-up': '<p:push dir="u"/>',

@@ -16,7 +16,22 @@ export type ShapeType =
   | 'star' | 'hexagon' | 'arrow-right' | 'arrow-left' | 'line';
 
 export type Transition =
-  | 'none' | 'fade' | 'slide-left' | 'slide-right' | 'slide-up' | 'slide-down' | 'zoom-in' | 'zoom-out';
+  | 'none' | 'fade' | 'rise' | 'soft-zoom' | 'slide-left' | 'slide-right' | 'slide-up' | 'slide-down' | 'zoom-in' | 'zoom-out';
+
+export type EntranceEffect = 'fade' | 'rise' | 'zoom' | 'wipe';
+
+/** Entrance animation played when the slide appears (or on click) during a presentation */
+export interface ObjectAnimation {
+  effect: EntranceEffect;
+  /** Seconds */
+  duration: number;
+  /** Seconds after the slide (or the click) starts it */
+  delay: number;
+  /** Wait for a click (or →) before playing */
+  onClick: boolean;
+  /** Text boxes: bring list items in one at a time (one click each when onClick) */
+  byParagraph?: boolean;
+}
 
 interface BaseObject {
   id: number;
@@ -32,6 +47,7 @@ interface BaseObject {
   borderColor: string;
   borderRadius: number;
   shadow: Shadow;
+  animation?: ObjectAnimation;
 }
 
 export interface TextStyle {
