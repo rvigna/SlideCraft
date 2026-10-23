@@ -1,7 +1,34 @@
 // SlideCraft — styles. Carbon provides tokens, type and components;
 // this file only lays out the editor and styles the slide canvas chrome.
 // IBM Plex is loaded from Google Fonts in index.html
-@use '@carbon/react' with ($css--font-face: false);
+// Only the Carbon modules SlideCraft uses (the full bundle is ~1.2 MB of CSS)
+@use '@carbon/react/scss/config' with ($css--font-face: false);
+@use '@carbon/react/scss/reset';
+@use '@carbon/react/scss/layer';
+@use '@carbon/react/scss/zone';
+@use '@carbon/react/scss/layout';
+@use '@carbon/react/scss/components/badge-indicator';
+@use '@carbon/react/scss/components/button';
+@use '@carbon/react/scss/components/checkbox';
+@use '@carbon/react/scss/components/content-switcher';
+@use '@carbon/react/scss/components/form';
+@use '@carbon/react/scss/components/inline-loading';
+@use '@carbon/react/scss/components/link';
+@use '@carbon/react/scss/components/menu';
+@use '@carbon/react/scss/components/modal';
+@use '@carbon/react/scss/components/notification';
+@use '@carbon/react/scss/components/number-input';
+@use '@carbon/react/scss/components/popover';
+@use '@carbon/react/scss/components/search';
+@use '@carbon/react/scss/components/select';
+@use '@carbon/react/scss/components/slider';
+@use '@carbon/react/scss/components/tag';
+@use '@carbon/react/scss/components/text-area';
+@use '@carbon/react/scss/components/text-input';
+@use '@carbon/react/scss/components/tile';
+@use '@carbon/react/scss/components/toggle';
+@use '@carbon/react/scss/components/tooltip';
+@use '@carbon/react/scss/components/ui-shell';
 @use '@carbon/react/scss/theme' as *;
 @use '@carbon/react/scss/spacing' as *;
 @use '@carbon/react/scss/type' as *;
@@ -57,12 +84,20 @@ body { background: $background; }
 // Toolbar
 // ---------------------------------------------------------------
 .sc-toolbar {
-  display: flex; align-items: center; gap: 1px; height: $toolbar-h; padding: 0 $spacing-03;
-  background: $layer-01; border-bottom: 1px solid $border-subtle-01; overflow-x: auto; overflow-y: hidden; flex-shrink: 0;
-  scrollbar-width: thin;
+  position: relative; display: flex; align-items: center; height: $toolbar-h; padding: 0 $spacing-03;
+  background: $layer-01; border-bottom: 1px solid $border-subtle-01; overflow: hidden; flex-shrink: 0;
   > * { flex-shrink: 0; }
 }
-.sc-toolbar-sep { width: 1px; height: 24px; background: $border-subtle-01; margin: 0 $spacing-03; }
+// Groups are separated by a hairline; overflowing groups leave the flow but stay measurable
+.sc-tgroup {
+  display: flex; align-items: center; gap: 1px; padding: 0 $spacing-03; position: relative;
+  &:not(.is-first)::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 1px; background: $border-subtle-01; }
+  &.is-first { padding-left: 0; }
+  &.is-overflow { position: absolute; visibility: hidden; pointer-events: none; top: 0; left: 0; }
+}
+.sc-toolbar-spacer { flex: 1; }
+.sc-tpinned { display: flex; align-items: center; gap: 1px; padding-left: $spacing-03; border-left: 1px solid $border-subtle-01; }
+.sc-menu-swatch { display: inline-block; width: 16px; height: 16px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
 .sc-font-select {
   .cds--select-input { width: 150px; }
   .cds--select-input__wrapper { width: auto; }
@@ -103,11 +138,14 @@ body { background: $background; }
 .sc-main { flex: 1; display: flex; min-height: 0; }
 
 .sc-slide-panel {
-  width: $panel-w; flex-shrink: 0; display: flex; flex-direction: column; background: $layer-01;
+  width: $panel-w;
+  &.is-compact { width: 168px; } flex-shrink: 0; display: flex; flex-direction: column; background: $layer-01;
   border-right: 1px solid $border-subtle-01;
 }
 .sc-slide-list { flex: 1; overflow-y: auto; padding: $spacing-04 $spacing-04 $spacing-04 0; display: flex; flex-direction: column; gap: $spacing-04; }
 .sc-thumb {
+  // Offscreen thumbnails skip layout and paint entirely
+  content-visibility: auto; contain-intrinsic-size: auto 104px;
   position: relative; display: flex; align-items: flex-start; gap: 0; background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
   &:focus-visible { outline: none; .sc-thumb-frame { outline: 2px solid $focus; } }
   &:hover .sc-thumb-frame { outline: 1px solid $border-strong-01; }
@@ -217,6 +255,9 @@ body { background: $background; }
   background: $layer-01; border-top: 1px solid $border-subtle-01; color: $text-secondary;
 }
 .sc-status-spacer { flex: 1; }
+.sc-status { padding-left: $spacing-02; }
+@media (max-width: 900px) { .sc-status-wide, .sc-zoom-slider { display: none; } }
+.sc-prop-tip { padding: $spacing-05; }
 .sc-zoom { display: flex; align-items: center; gap: $spacing-02; }
 .sc-zoom-slider { .cds--slider { min-width: 100px; width: 120px; } .cds--slider__range-label { display: none; } }
 .sc-zoom-level { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }

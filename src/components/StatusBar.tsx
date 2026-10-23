@@ -1,5 +1,6 @@
 import { IconButton, Slider } from '@carbon/react';
-import { FitToScreen, ZoomIn, ZoomOut } from '@carbon/icons-react';
+import { FitToScreen, SidePanelClose, SidePanelOpen, ZoomIn, ZoomOut } from '@carbon/icons-react';
+import { toggleSlides, useUi } from '../store/ui';
 import { setZoom, useEditor } from '../store/editor';
 
 export function StatusBar() {
@@ -9,11 +10,15 @@ export function StatusBar() {
   const selected = useEditor(s => s.selection.length);
   const zoom = useEditor(s => s.zoom);
   const theme = useEditor(s => s.deck.themeName);
+  const showSlides = useUi(s => s.showSlides);
   return (
     <footer className="sc-status">
+      <IconButton kind="ghost" size="xs" label={showSlides ? 'Hide slides' : 'Show slides'} align="top-start" isSelected={showSlides} onClick={toggleSlides}>
+        {showSlides ? <SidePanelClose /> : <SidePanelOpen />}
+      </IconButton>
       <span>Slide {index + 1} of {total}</span>
       <span>{objects} object{objects !== 1 ? 's' : ''}{selected ? ` · ${selected} selected` : ''}</span>
-      <span>Theme: {theme}</span>
+      <span className="sc-status-wide">Theme: {theme}</span>
       <span className="sc-status-spacer" />
       <div className="sc-zoom">
         <IconButton kind="ghost" size="xs" label="Zoom out" onClick={() => setZoom(zoom - 10)}><ZoomOut /></IconButton>

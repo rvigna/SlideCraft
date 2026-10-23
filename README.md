@@ -140,7 +140,7 @@ slidecraft.onChange(deck => console.log(deck.slides.length));
 | Slides | `addSlide({layout, after, background, notes})`, `updateSlide(i, patch)`, `duplicateSlide`, `deleteSlide`, `moveSlide(from, to)`, `goToSlide`, `applyLayout` |
 | Objects | `addText`, `addBullets`, `addShape`, `addImage`, `addIcon`, `addTable`, `addChart`, `update`, `remove`, `select`, `align`, `distribute`, `arrange` |
 | History | `undo()`, `redo()`, `batch(fn)` |
-| Files | `exportPptx()`, `openPptx(url \| Blob \| ArrayBuffer)`, `exportHtml()`, `exportJson()`, `save()`, `print()` |
+| Files | `exportPptx()`, `openPptx(url \| Blob \| ArrayBuffer)`, `exportHtml()` (async), `exportJson()`, `save()`, `print()` |
 | Present | `present(i)`, `presenterView(i)`, `next()`, `prev()`, `exitPresentation()` |
 | Design | `lint()`, `fixIssues(keys?)` |
 | Markdown | `toMarkdown()`, `fromMarkdown(md)` |

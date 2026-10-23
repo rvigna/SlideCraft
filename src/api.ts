@@ -18,12 +18,10 @@ import { ICON_NAMES } from './model/icons';
 import { plainToHtml, sanitizeHtml, htmlToPlain } from './model/richtext';
 import { seriesColor, tableColors } from './model/palette';
 import { imageSize } from './io/images';
-import { deckToHtml } from './io/htmlExport';
 import { exportJsonFile, printDeck, saveToBrowser } from './io/files';
 import { lintDeck, type LintIssue } from './model/lint';
 import { fixAll, lintContext } from './components/lintActions';
 import { deckToMarkdown, markdownToDeck } from './model/markdown';
-import { runAssistant, setApiKey, useAssistant } from './ai/assistant';
 import { safeFileName, downloadBlob } from './io/images';
 
 type Box = Partial<Pick<SlideObject, 'x' | 'y' | 'w' | 'h' | 'rotation' | 'opacity'>>;
@@ -258,7 +256,8 @@ export const api = {
     ed.loadDeck(deck);
     return warnings;
   },
-  exportHtml: (): string => deckToHtml(ed.useEditor.getState().deck),
+  /** Self-contained HTML slideshow (async: the renderer loads on first use) */
+  exportHtml: async (): Promise<string> => (await import('./io/htmlExport')).deckToHtml(ed.useEditor.getState().deck),
   exportJson: (opts: { download?: boolean } = {}): string => {
     if (opts.download) exportJsonFile();
     return JSON.stringify(ed.useEditor.getState().deck, null, 2);
@@ -283,6 +282,7 @@ export const api = {
   // ---------------- AI ----------------
   /** Ask the AI assistant to change the deck (needs an Anthropic API key, set in the panel or via setApiKey) */
   async ask(prompt: string): Promise<string> {
+    const { runAssistant, useAssistant } = await import('./ai/assistant');
     await runAssistant(prompt);
     const items = useAssistant.getState().items;
     const errors = items.filter(i => i.kind === 'error');
@@ -290,7 +290,7 @@ export const api = {
     if (errors.length && items.indexOf(errors[errors.length - 1]) > items.indexOf(last!)) throw new Error(errors[errors.length - 1].text);
     return last?.text ?? '';
   },
-  setApiKey: (key: string) => setApiKey(key),
+  setApiKey: async (key: string) => (await import('./ai/assistant')).setApiKey(key),
 
   // ---------------- Presenting ----------------
   present: (from = 0) => ed.startPresentation(slideIndex(from)),

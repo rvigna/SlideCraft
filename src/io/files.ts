@@ -4,7 +4,6 @@ import { loadDeck, markSaved, toast, useEditor } from '../store/editor';
 import { setBusy, useUi } from '../store/ui';
 import { normalizeDeck } from '../model/factory';
 import { downloadBlob, pickFile, safeFileName } from './images';
-import { deckToHtml } from './htmlExport';
 
 export const STORAGE_KEY = 'slidecraft-data';
 
@@ -130,7 +129,8 @@ export async function openAnyFile(file: File) {
   toast('error', 'Unsupported file', 'SlideCraft opens .pptx, .md and .json presentations.');
 }
 
-export function exportHtmlFile() {
+export async function exportHtmlFile() {
+  const { deckToHtml } = await import('./htmlExport');
   const { deck } = useEditor.getState();
   downloadBlob(new Blob([deckToHtml(deck)], { type: 'text/html' }), `${safeFileName(deck.title)}.html`);
   toast('success', 'HTML slideshow downloaded', 'Open it in any browser — arrow keys navigate, F toggles full screen.');

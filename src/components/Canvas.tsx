@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { SlideObject } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { boundsOf, intersects, resizeBox, snapLines, snapMove, type Box, type ResizeHandle } from '../model/geometry';
@@ -93,7 +93,8 @@ function EditableText({ obj }: { obj: Extract<SlideObject, { type: 'text' | 'sha
   );
 }
 
-function EditorObject({ obj, selected, showHandles, editing }: { obj: SlideObject; selected: boolean; showHandles: boolean; editing: boolean }) {
+// Memoized: during a drag only the moved objects re-render
+const EditorObject = memo(function EditorObject({ obj, selected, showHandles, editing }: { obj: SlideObject; selected: boolean; showHandles: boolean; editing: boolean }) {
   const editable = editing && (obj.type === 'text' || obj.type === 'shape' || obj.type === 'table');
   return (
     <div
@@ -119,7 +120,7 @@ function EditorObject({ obj, selected, showHandles, editing }: { obj: SlideObjec
       )}
     </div>
   );
-}
+});
 
 export function Canvas() {
   const slide = useEditor(s => s.deck.slides[s.slideIndex]);
@@ -135,19 +136,22 @@ export function Canvas() {
   const scale = zoom / 100;
   const selected = useMemo(() => new Set(selection), [selection]);
 
-  // Fit the slide to the editor on first render and whenever the window resizes
+  // Fit the slide to the editor, and keep fitting as the area changes size (window resize,
+  // sidebars opening or closing) until the user picks a zoom level by hand
   useLayoutEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
     const fit = () => {
-      const area = areaRef.current;
-      if (!area) return;
-      const z = Math.min((area.clientWidth - 96) / SLIDE_W, (area.clientHeight - 96) / SLIDE_H, 1.5) * 100;
-      setZoom(z);
+      const pad = area.clientWidth < 700 ? 48 : 96;
+      const z = Math.min((area.clientWidth - pad) / SLIDE_W, (area.clientHeight - pad) / SLIDE_H, 1.5) * 100;
+      if (z > 0) setZoom(z, true);
     };
     fit();
     const onFit = () => fit();
+    const observer = new ResizeObserver(() => { if (useEditor.getState().zoomFit) fit(); });
+    observer.observe(area);
     window.addEventListener('slidecraft:zoom-fit', onFit);
-    window.addEventListener('resize', onFit);
-    return () => { window.removeEventListener('slidecraft:zoom-fit', onFit); window.removeEventListener('resize', onFit); };
+    return () => { observer.disconnect(); window.removeEventListener('slidecraft:zoom-fit', onFit); };
   }, []);
 
   const toSlide = (clientX: number, clientY: number) => {

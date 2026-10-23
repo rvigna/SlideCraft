@@ -23,6 +23,8 @@ export interface EditorState {
   past: HistoryEntry[];
   future: HistoryEntry[];
   zoom: number;
+  /** True while the zoom follows the window ("fit"); any manual zoom turns it off */
+  zoomFit: boolean;
   dirty: boolean;
   savedAt: number | null;
   saveError: string | null;
@@ -51,6 +53,7 @@ export const useEditor = create<EditorState>(() => ({
   past: [],
   future: [],
   zoom: 100,
+  zoomFit: true,
   dirty: false,
   savedAt: null,
   saveError: null,
@@ -394,7 +397,7 @@ export function duplicateSelection() {
 // ---------------------------------------------------------------
 // View, presentation, notifications
 // ---------------------------------------------------------------
-export const setZoom = (zoom: number) => set({ zoom: Math.max(25, Math.min(200, Math.round(zoom))) });
+export const setZoom = (zoom: number, fit = false) => set({ zoom: Math.max(25, Math.min(200, Math.round(zoom))), zoomFit: fit });
 
 export function startPresentation(index = get().slideIndex, presenter = false) {
   set({ presentation: { index, presenter }, editingId: null });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Theme } from '@carbon/react';
 import { DocumentImport } from '@carbon/icons-react';
 import { AppHeader } from './components/AppHeader';
@@ -8,9 +8,6 @@ import { Canvas } from './components/Canvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { StatusBar } from './components/StatusBar';
 import { ContextMenuHost } from './components/ContextMenu';
-import { Dialogs } from './components/dialogs/Dialogs';
-import { Presentation } from './components/Presentation';
-import { PrintView } from './components/PrintView';
 import { Toasts } from './components/Toasts';
 import { useShortcuts } from './hooks/useShortcuts';
 import { useClipboard } from './hooks/useClipboard';
@@ -19,9 +16,35 @@ import { commitSlide } from './store/editor';
 import { openAnyFile } from './io/files';
 import { pickFile, readFileAsDataURL } from './io/images';
 import { DesignCheckPanel } from './components/DesignCheckPanel';
-import { AssistantPanel } from './components/AssistantPanel';
 import { useLint } from './hooks/useLint';
 import { useUi } from './store/ui';
+import { useEditor } from './store/editor';
+
+// Loaded on first use: the AI SDK, dialogs, slideshow and print view stay out of the startup bundle
+const AssistantPanel = lazy(() => import('./components/AssistantPanel').then(m => ({ default: m.AssistantPanel })));
+const Dialogs = lazy(() => import('./components/dialogs/Dialogs').then(m => ({ default: m.Dialogs })));
+const Presentation = lazy(() => import('./components/Presentation').then(m => ({ default: m.Presentation })));
+const PrintView = lazy(() => import('./components/PrintView').then(m => ({ default: m.PrintView })));
+
+function LazyDialogs() {
+  const dialog = useUi(s => s.dialog);
+  return dialog ? <Suspense fallback={null}><Dialogs /></Suspense> : null;
+}
+
+function LazyPresentation() {
+  const presenting = useEditor(s => !!s.presentation);
+  return presenting ? <Suspense fallback={null}><Presentation /></Suspense> : null;
+}
+
+function LazyPrintView() {
+  // PrintView listens for beforeprint itself, so load it once the page is idle
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500));
+    idle(() => setReady(true));
+  }, []);
+  return ready ? <Suspense fallback={null}><PrintView /></Suspense> : null;
+}
 
 /** Dropping a .pptx/.json anywhere opens it; image drops are handled by the canvas */
 function useFileDrop() {
@@ -62,8 +85,9 @@ function useReplaceImage() {
 function RightPanel() {
   const panel = useUi(s => s.panel);
   if (panel === 'check') return <DesignCheckPanel />;
-  if (panel === 'assistant') return <AssistantPanel />;
-  return <PropertiesPanel />;
+  if (panel === 'assistant') return <Suspense fallback={<aside className="sc-properties sc-ai" />}><AssistantPanel /></Suspense>;
+  if (panel === 'properties') return <PropertiesPanel />;
+  return null;
 }
 
 export default function App() {
@@ -73,6 +97,7 @@ export default function App() {
   usePersistence();
   useReplaceImage();
   const dropping = useFileDrop();
+  const showSlides = useUi(s => s.showSlides);
 
   return (
     <div className="sc-app">
@@ -80,20 +105,20 @@ export default function App() {
       <Theme theme="white" className="sc-body">
         <Toolbar />
         <div className="sc-main">
-          <SlidePanel />
+          {showSlides && <SlidePanel />}
           <Canvas />
           <RightPanel />
         </div>
         <StatusBar />
-        <Dialogs />
+        <LazyDialogs />
         <ContextMenuHost />
         <Toasts />
         {dropping && (
           <div className="sc-file-drop"><DocumentImport size={48} /><p>Drop a PowerPoint (.pptx), Markdown (.md) or SlideCraft JSON file to open it</p></div>
         )}
       </Theme>
-      <Presentation />
-      <PrintView />
+      <LazyPresentation />
+      <LazyPrintView />
     </div>
   );
 }

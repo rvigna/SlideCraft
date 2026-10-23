@@ -42,13 +42,7 @@ function Section({ title, children, aside }: { title: string; children: React.Re
 function ObjectProperties() {
   const obj = ed.useEditor(s => ed.primaryObject(s));
   const count = ed.useEditor(s => s.selection.length);
-  if (!obj) {
-    return (
-      <Section title="Selection">
-        <p className="sc-prop-hint">Select an object to edit it. Drag on empty space to select several; Shift-click to add or remove.</p>
-      </Section>
-    );
-  }
+  if (!obj) return null;
   const setBox = (key: 'x' | 'y' | 'w' | 'h' | 'rotation') => (v: number) => {
     const id = obj.id;
     ed.commitSlide(slide => {
@@ -214,6 +208,7 @@ export function PropertiesPanel() {
     <aside className="sc-properties" aria-label="Properties">
       <ObjectProperties />
       <SlideProperties />
+      <p className="sc-prop-hint sc-prop-tip">Tip: drag on empty space to select several objects; Shift-click adds or removes one.</p>
     </aside>
   );
 }

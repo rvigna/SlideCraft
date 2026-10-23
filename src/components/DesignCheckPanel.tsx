@@ -4,7 +4,7 @@ import { useUi, setPanel } from '../store/ui';
 import { useEditor } from '../store/editor';
 import { RULES, type LintIssue, type Severity } from '../model/lint';
 import { fixAll, fixOne, showIssue } from './lintActions';
-import { askAssistant } from '../ai/assistant';
+
 
 const TAG: Record<Severity, 'red' | 'warm-gray' | 'blue'> = { error: 'red', warning: 'warm-gray', info: 'blue' };
 const LABEL: Record<Severity, string> = { error: 'Error', warning: 'Warning', info: 'Tip' };
@@ -23,7 +23,7 @@ function IssueRow({ issue }: { issue: LintIssue }) {
         {issue.slide >= 0 && <Button kind="ghost" size="sm" renderIcon={View} onClick={() => showIssue(issue)}>Show</Button>}
         {issue.fix && <Button kind="tertiary" size="sm" onClick={() => fixOne(issue)}>{issue.fix}</Button>}
         {issue.rule === 'crowded' && (
-          <Button kind="tertiary" size="sm" onClick={() => askAssistant(`Slide ${issue.slide + 1} is crowded. Split it into two or more clear slides, keeping every point.`)}>Split with AI</Button>
+          <Button kind="tertiary" size="sm" onClick={() => void import('../ai/assistant').then(m => m.askAssistant(`Slide ${issue.slide + 1} is crowded. Split it into two or more clear slides, keeping every point.`))}>Split with AI</Button>
         )}
       </div>
     </li>
