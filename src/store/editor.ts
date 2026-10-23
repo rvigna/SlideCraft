@@ -136,22 +136,31 @@ export function commitSelection(fn: (o: Draft<SlideObject>) => void, filter: (o:
 
 export function endCoalesce() { coalesceKey = null; }
 
-/** Run several changes as a single undo step (used by the automation API) */
-export function batch<T>(fn: () => T): T {
+/** Open a batch: every change until the matching endBatch() is one undo step (works across awaits) */
+export function beginBatch() {
   if (batchDepth === 0) {
     const s = get();
     batchBase = { deck: s.deck, slideIndex: s.slideIndex };
   }
   batchDepth++;
+}
+
+export function endBatch() {
+  batchDepth = Math.max(0, batchDepth - 1);
+  if (batchDepth === 0 && batchBase) {
+    const s = get();
+    if (s.deck !== batchBase.deck) set({ past: [...s.past, batchBase].slice(-HISTORY_LIMIT), future: [], dirty: true });
+    batchBase = null;
+  }
+}
+
+/** Run several changes as a single undo step (used by the automation API) */
+export function batch<T>(fn: () => T): T {
+  beginBatch();
   try {
     return fn();
   } finally {
-    batchDepth--;
-    if (batchDepth === 0 && batchBase) {
-      const s = get();
-      if (s.deck !== batchBase.deck) set({ past: [...s.past, batchBase].slice(-HISTORY_LIMIT), future: [], dirty: true });
-      batchBase = null;
-    }
+    endBatch();
   }
 }
 

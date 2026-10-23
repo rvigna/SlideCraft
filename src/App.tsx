@@ -18,6 +18,10 @@ import { usePersistence } from './hooks/usePersistence';
 import { commitSlide } from './store/editor';
 import { openAnyFile } from './io/files';
 import { pickFile, readFileAsDataURL } from './io/images';
+import { DesignCheckPanel } from './components/DesignCheckPanel';
+import { AssistantPanel } from './components/AssistantPanel';
+import { useLint } from './hooks/useLint';
+import { useUi } from './store/ui';
 
 /** Dropping a .pptx/.json anywhere opens it; image drops are handled by the canvas */
 function useFileDrop() {
@@ -28,7 +32,7 @@ function useFileDrop() {
     const leave = (e: DragEvent) => { if (!e.relatedTarget) setActive(false); };
     const drop = (e: DragEvent) => {
       setActive(false);
-      const file = [...(e.dataTransfer?.files ?? [])].find(f => /\.(pptx|json)$/i.test(f.name));
+      const file = [...(e.dataTransfer?.files ?? [])].find(f => /\.(pptx|json|md|markdown)$/i.test(f.name));
       if (!file) return;
       e.preventDefault();
       void openAnyFile(file);
@@ -55,7 +59,15 @@ function useReplaceImage() {
   }, []);
 }
 
+function RightPanel() {
+  const panel = useUi(s => s.panel);
+  if (panel === 'check') return <DesignCheckPanel />;
+  if (panel === 'assistant') return <AssistantPanel />;
+  return <PropertiesPanel />;
+}
+
 export default function App() {
+  useLint();
   useShortcuts();
   useClipboard();
   usePersistence();
@@ -70,14 +82,14 @@ export default function App() {
         <div className="sc-main">
           <SlidePanel />
           <Canvas />
-          <PropertiesPanel />
+          <RightPanel />
         </div>
         <StatusBar />
         <Dialogs />
         <ContextMenuHost />
         <Toasts />
         {dropping && (
-          <div className="sc-file-drop"><DocumentImport size={48} /><p>Drop a PowerPoint (.pptx) or SlideCraft JSON file to open it</p></div>
+          <div className="sc-file-drop"><DocumentImport size={48} /><p>Drop a PowerPoint (.pptx), Markdown (.md) or SlideCraft JSON file to open it</p></div>
         )}
       </Theme>
       <Presentation />

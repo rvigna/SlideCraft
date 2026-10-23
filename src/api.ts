@@ -20,6 +20,10 @@ import { seriesColor, tableColors } from './model/palette';
 import { imageSize } from './io/images';
 import { deckToHtml } from './io/htmlExport';
 import { exportJsonFile, printDeck, saveToBrowser } from './io/files';
+import { lintDeck, type LintIssue } from './model/lint';
+import { fixAll, lintContext } from './components/lintActions';
+import { deckToMarkdown, markdownToDeck } from './model/markdown';
+import { runAssistant, setApiKey, useAssistant } from './ai/assistant';
 import { safeFileName, downloadBlob } from './io/images';
 
 type Box = Partial<Pick<SlideObject, 'x' | 'y' | 'w' | 'h' | 'rotation' | 'opacity'>>;
@@ -261,6 +265,33 @@ export const api = {
   },
   print: () => printDeck(),
 
+  // ---------------- Design check ----------------
+  /** Design issues (overflow, contrast, off-slide, tiny text, fonts, alignment, crowding…) */
+  lint: (): LintIssue[] => clone(lintDeck(ed.useEditor.getState().deck, lintContext())),
+  /** Apply automatic fixes (all, or the given issue keys) as one undo step; returns how many were fixed */
+  fixIssues(keys?: string[]): number {
+    const issues = lintDeck(ed.useEditor.getState().deck, lintContext()).filter(i => !keys || keys.includes(i.key));
+    return fixAll(issues);
+  },
+
+  // ---------------- Markdown ----------------
+  /** The deck as Markdown (decks-as-code format) */
+  toMarkdown: (): string => deckToMarkdown(ed.useEditor.getState().deck),
+  /** Replace the deck with one built from Markdown; returns the slide count */
+  fromMarkdown(md: string): number { ed.loadDeck(markdownToDeck(String(md))); return api.slideCount; },
+
+  // ---------------- AI ----------------
+  /** Ask the AI assistant to change the deck (needs an Anthropic API key, set in the panel or via setApiKey) */
+  async ask(prompt: string): Promise<string> {
+    await runAssistant(prompt);
+    const items = useAssistant.getState().items;
+    const errors = items.filter(i => i.kind === 'error');
+    const last = [...items].reverse().find(i => i.kind === 'assistant');
+    if (errors.length && items.indexOf(errors[errors.length - 1]) > items.indexOf(last!)) throw new Error(errors[errors.length - 1].text);
+    return last?.text ?? '';
+  },
+  setApiKey: (key: string) => setApiKey(key),
+
   // ---------------- Presenting ----------------
   present: (from = 0) => ed.startPresentation(slideIndex(from)),
   presenterView: (from = 0) => ed.startPresentation(slideIndex(from), true),
@@ -292,6 +323,9 @@ OBJECTS   addText(text, opts) · addBullets(['a', ['sub'], 'b']) · addShape(typ
           update(id, patch) · remove(id|ids) · select(ids) · selectAll() · align(mode) · distribute('h'|'v')
           arrange('front'|'back'|'forward'|'backward')
 HISTORY   undo() · redo() · batch(fn)  — batch makes many calls one undo step
+DESIGN    lint() · fixIssues(keys?)
+MARKDOWN  toMarkdown() · fromMarkdown(md)
+AI        ask(prompt) · setApiKey(key)
 FILES     exportPptx({ download }) · openPptx(url|Blob|ArrayBuffer) · exportHtml() · exportJson() · save() · print()
 PRESENT   present(i) · presenterView(i) · next() · prev() · exitPresentation()
 EVENTS    onChange(fn) → unsubscribe · notify(title, kind)

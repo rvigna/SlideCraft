@@ -3,7 +3,7 @@ import { IconButton, Popover, PopoverContent, Search, Select, SelectItem } from 
 import {
   AlignBoxMiddleCenter, BringToFront, ColorPalette, ColorSwitch, Image, Idea, ListBulleted, ListNumbered, PaintBrush,
   Redo, SendToBack, Shapes, Subtract, Add, TextAlignCenter, TextAlignLeft, TextAlignRight, TextBold, TextColor,
-  TextFont, TextItalic, TextStrikethrough, TextUnderline, Template, TrashCan, Undo, BorderFull, DataTable, ChartColumn,
+  TextFont, TextItalic, TextStrikethrough, TextUnderline, Template, TrashCan, Undo, BorderFull, DataTable, ChartColumn, TaskView, MagicWand,
 } from '@carbon/icons-react';
 import { insertChart, insertTable } from './objectOps';
 import type { ShapeType } from '../model/types';
@@ -11,7 +11,7 @@ import { isTextual } from '../model/types';
 import { createShapeObject, createIconObject, createTextObject } from '../model/factory';
 import { ICON_NAMES, ICONS, iconLabel } from '../model/icons';
 import * as ed from '../store/editor';
-import { openDialog } from '../store/ui';
+import { openDialog, setPanel, useUi } from '../store/ui';
 import { formatSelection, isFormatActive, styleSelection, toggleFormat, toggleList, type FormatToggle } from './formatting';
 import { ColorButton, NumField } from './fields';
 import { SHAPE_POLYGONS } from './SlideObjectView';
@@ -108,6 +108,8 @@ export function Toolbar() {
   const slideIndex = ed.useEditor(s => s.slideIndex);
   const slideBg = ed.useEditor(s => s.deck.slides[s.slideIndex].background);
   const [picker, setPicker] = useState<'shape' | 'icon' | null>(null);
+  const panel = useUi(s => s.panel);
+  const issueCount = useUi(s => s.issues.filter(i => i.severity !== 'info').length);
 
   useEffect(() => {
     const shapes = () => setPicker('shape');
@@ -188,6 +190,9 @@ export function Toolbar() {
         onPick={c => ed.commitSlide(s => { s.background = c; s.backgroundImage = ''; }, { coalesce: 'slide-bg' })} />
       <IconButton kind="ghost" size="sm" label="Slide layout" onClick={() => openDialog('layout', slideIndex)}><Template /></IconButton>
       <IconButton kind="ghost" size="sm" label="Design theme" onClick={() => openDialog('theme')}><ColorSwitch /></IconButton>
+      <Sep />
+      <IconButton kind="ghost" size="sm" label="Design check" isSelected={panel === 'check'} badgeCount={issueCount || undefined} onClick={() => setPanel('check')}><TaskView /></IconButton>
+      <IconButton kind="ghost" size="sm" label="AI assistant" isSelected={panel === 'assistant'} onClick={() => setPanel('assistant')}><MagicWand /></IconButton>
     </div>
   );
 }

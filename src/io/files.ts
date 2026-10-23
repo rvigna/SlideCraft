@@ -100,11 +100,34 @@ export async function importJsonFile() {
   if (file) await openJson(file);
 }
 
-/** Open whatever was dropped or picked: PPTX or SlideCraft JSON */
+export async function openMarkdown(file: File) {
+  try {
+    const { markdownToDeck } = await import('../model/markdown');
+    loadDeck(markdownToDeck(await file.text()));
+    const n = useEditor.getState().deck.slides.length;
+    toast('success', `Opened “${file.name}” — ${n} slide${n !== 1 ? 's' : ''}`);
+  } catch (err) {
+    toast('error', 'Could not open Markdown file', (err as Error).message);
+  }
+}
+
+export async function openMarkdownFile() {
+  const file = await pickFile('.md,.markdown,text/markdown');
+  if (file) await openMarkdown(file);
+}
+
+export async function exportMarkdownFile() {
+  const { deckToMarkdown } = await import('../model/markdown');
+  const { deck } = useEditor.getState();
+  downloadBlob(new Blob([deckToMarkdown(deck)], { type: 'text/markdown' }), `${safeFileName(deck.title)}.md`);
+}
+
+/** Open whatever was dropped or picked: PPTX, Markdown or SlideCraft JSON */
 export async function openAnyFile(file: File) {
   if (/\.pptx$/i.test(file.name)) return openPptx(file);
+  if (/\.(md|markdown)$/i.test(file.name)) return openMarkdown(file);
   if (/\.json$/i.test(file.name)) return openJson(file);
-  toast('error', 'Unsupported file', 'SlideCraft opens .pptx and .json presentations.');
+  toast('error', 'Unsupported file', 'SlideCraft opens .pptx, .md and .json presentations.');
 }
 
 export function exportHtmlFile() {

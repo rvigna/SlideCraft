@@ -139,7 +139,7 @@ body { background: $background; }
   ul { list-style: disc; } ol { list-style: decimal; }
   ul ul { list-style: circle; } ul ul ul { list-style: square; }
 }
-.slide-stage, .sc-print-page, .sc-show-slide, .sc-presenter-slide {
+.slide-stage, .sc-print-page, .sc-show-slide, .sc-presenter-slide, .slide-canvas-probe {
   ul, ol { padding-left: 1.4em; margin: 0; }
   ul { list-style: disc; } ol { list-style: decimal; }
   ul ul { list-style: circle; } ul ul ul { list-style: square; }
@@ -335,3 +335,49 @@ body { background: $background; }
   .sc-print-root { display: block; }
   .sc-print-page { width: 960px; height: 540px; overflow: hidden; break-after: page; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+// ---------------------------------------------------------------
+// Design check & AI assistant panels
+// ---------------------------------------------------------------
+.sc-check, .sc-ai { display: flex; flex-direction: column; width: 320px; }
+.sc-check-head {
+  display: flex; align-items: center; justify-content: space-between; padding: $spacing-03 $spacing-03 $spacing-03 $spacing-05;
+  border-bottom: 1px solid $border-subtle-01; flex-shrink: 0;
+  h2 { @include type-style('heading-compact-02'); }
+  > div { display: flex; }
+}
+.sc-check-summary { display: flex; flex-wrap: wrap; align-items: center; gap: $spacing-03; padding: $spacing-04 $spacing-05; border-bottom: 1px solid $border-subtle-01; .cds--btn { margin-left: auto; } }
+.sc-check-empty { padding: $spacing-06 $spacing-05; display: flex; flex-direction: column; gap: $spacing-04; }
+.sc-check-ok { @include type-style('heading-compact-02'); color: $support-success; }
+.sc-issue-list { overflow-y: auto; flex: 1; }
+.sc-issue {
+  padding: $spacing-04 $spacing-05; border-bottom: 1px solid $border-subtle-01; display: flex; flex-direction: column; gap: $spacing-02;
+  &.is-current { background: $layer-selected-01; }
+}
+.sc-issue-head { display: flex; align-items: center; gap: $spacing-03; strong { @include type-style('heading-compact-01'); flex: 1; } .cds--tag { margin: 0; } }
+.sc-issue-slide { @include type-style('label-01'); color: $text-secondary; white-space: nowrap; }
+.sc-issue-msg { @include type-style('body-compact-01'); color: $text-secondary; overflow-wrap: anywhere; }
+.sc-issue-actions { display: flex; gap: $spacing-03; .cds--btn { min-height: 0; } }
+
+.sc-ai-setup, .sc-ai-generate { padding: $spacing-05; display: flex; flex-direction: column; gap: $spacing-05; overflow-y: auto; }
+.sc-ai-quick { display: flex; flex-wrap: wrap; gap: $spacing-03; padding: $spacing-04 $spacing-05; border-bottom: 1px solid $border-subtle-01; .cds--btn { max-width: none; inline-size: auto; padding-inline-end: $spacing-05; min-block-size: 2rem; } .cds--btn .cds--btn__icon { margin-inline-start: $spacing-03; position: static; } }
+.sc-ai-log { flex: 1; overflow-y: auto; padding: $spacing-04 $spacing-05; display: flex; flex-direction: column; gap: $spacing-03; }
+.sc-ai-item {
+  @include type-style('body-compact-01'); white-space: pre-wrap; overflow-wrap: anywhere; padding: $spacing-03 $spacing-04; max-width: 92%;
+  &.is-user { align-self: flex-end; background: $background-brand; color: $text-on-color; }
+  &.is-assistant { align-self: flex-start; background: $layer-02; }
+  &.is-activity { align-self: flex-start; padding: 0 $spacing-02; color: $text-secondary; @include type-style('label-01'); &::before { content: '✓ '; color: $support-success; } }
+  &.is-error { align-self: stretch; background: $layer-02; border-left: 3px solid $support-error; }
+}
+.sc-ai-input { display: flex; flex-direction: column; gap: $spacing-03; padding: $spacing-04 $spacing-05; border-top: 1px solid $border-subtle-01; .cds--btn { align-self: flex-end; } }
+.sc-ai > .cds--btn--ghost { margin: 0 $spacing-05; }
+
+// Markdown editor dialog
+.sc-md-dialog { display: flex; gap: $spacing-05; height: 56vh; }
+.sc-md-editor {
+  flex: 1; min-width: 0; resize: none; padding: $spacing-04; border: 0; border-bottom: 1px solid $border-strong-01; outline: none;
+  background: $field-02; color: $text-primary; @include type-style('code-02'); line-height: 1.55; tab-size: 2;
+  &:focus { outline: 2px solid $focus; outline-offset: -2px; }
+}
+.sc-md-preview { width: 236px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; gap: $spacing-04; }
+.sc-md-thumb { display: flex; gap: $spacing-03; span { @include type-style('label-01'); color: $text-secondary; width: 20px; text-align: right; } > div { box-shadow: 0 0 0 1px $border-subtle-01; } }

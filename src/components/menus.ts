@@ -4,14 +4,14 @@ import {
   DocumentAdd, DocumentExport, DocumentImport, DocumentPdf, Download, Edit, FitToScreen, FolderOpen, Html,
   Image, Information, Keyboard, Json, Maximize, Paste, Play, Printer, Redo, Save, SendToBack, Shapes, Template,
   TextBold, TextFont, TextItalic, TextUnderline, TrashCan, Undo, ZoomIn, ZoomOut, ColorSwitch, Screen, Copy as CopySlide,
-  ArrowUp, ArrowDown, Add, SelectWindow, Idea, DataTable, ChartColumn, Code,
+  ArrowUp, ArrowDown, Add, SelectWindow, Idea, DataTable, ChartColumn, Code, TaskView, MagicWand,
 } from '@carbon/icons-react';
 import { insertChart, insertTable } from './objectOps';
 import type { MenuItem } from '../store/ui';
-import { openDialog } from '../store/ui';
+import { openDialog, setPanel } from '../store/ui';
 import * as ed from '../store/editor';
 import { hasClipboard } from '../store/editor';
-import { exportHtmlFile, exportJsonFile, importJsonFile, openPptxFile, printDeck, savePptxFile, saveToBrowser } from '../io/files';
+import { exportHtmlFile, exportJsonFile, exportMarkdownFile, importJsonFile, openMarkdownFile, openPptxFile, printDeck, savePptxFile, saveToBrowser } from '../io/files';
 import { formatSelection, toggleFormat } from './formatting';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -111,7 +111,9 @@ export function menubar(): { id: string; label: string; items: () => MenuItem[] 
       id: 'file', label: 'File', items: () => [
         { label: 'New Presentation', icon: DocumentAdd, onClick: () => openDialog('new') },
         { label: 'Open PowerPoint (.pptx)…', icon: FolderOpen, shortcut: `${MOD}O`, onClick: openPptxFile },
+        { label: 'Open Markdown (.md)…', icon: DocumentImport, onClick: openMarkdownFile },
         { label: 'Open SlideCraft JSON…', icon: DocumentImport, onClick: importJsonFile },
+        { label: 'Edit Deck as Markdown…', icon: Code, shortcut: `${MOD}${SHIFT}M`, onClick: () => openDialog('markdown') },
         'divider',
         { label: 'Save in Browser', icon: Save, shortcut: `${MOD}S`, onClick: () => saveToBrowser(true) },
         { label: 'Save as PowerPoint (.pptx)', icon: DocumentExport, shortcut: `${MOD}${SHIFT}S`, onClick: savePptxFile },
@@ -120,6 +122,7 @@ export function menubar(): { id: string; label: string; items: () => MenuItem[] 
             { label: 'PowerPoint (.pptx)', icon: DocumentExport, onClick: savePptxFile },
             { label: 'PDF (via Print)', icon: DocumentPdf, onClick: printDeck },
             { label: 'HTML Slideshow', icon: Html, onClick: exportHtmlFile },
+            { label: 'Markdown (.md)', icon: Code, onClick: exportMarkdownFile },
             { label: 'SlideCraft JSON', icon: Json, onClick: exportJsonFile },
           ],
         },
@@ -188,6 +191,9 @@ export function menubar(): { id: string; label: string; items: () => MenuItem[] 
         'divider',
         { label: 'Design Theme…', icon: ColorSwitch, onClick: () => { editingOff(); openDialog('theme'); } },
         { label: 'Slide Background…', icon: ColorPalette, onClick: () => openDialog('background', ed.useEditor.getState().slideIndex) },
+        'divider',
+        { label: 'Design Check', icon: TaskView, onClick: () => setPanel('check') },
+        { label: 'AI Assistant', icon: MagicWand, onClick: () => setPanel('assistant') },
       ],
     },
     { id: 'arrange', label: 'Arrange', items: arrangeItems },

@@ -4,6 +4,65 @@ A web-based presentation editor built with **React**, **TypeScript** and the **I
 
 ## Features
 
+### AI assistant
+Open it with the ✨ toolbar button or Format › AI Assistant. It uses Claude (`claude-opus-5-5`) with your own Anthropic API key, which is stored only in your browser and sent only to `api.anthropic.com`.
+- **Generate a deck** from a topic, an outline or pasted notes. You choose the number of slides, the audience and the theme.
+- **Quick actions**: improve this slide, write speaker notes, make it concise, fix design issues (including splitting crowded slides), add a summary slide.
+- **Chat**: ask for anything, e.g. "turn slide 3 into a chart", "translate the deck to Spanish", "reorder for a 5-minute version". Claude edits the deck through tools: reading slides, writing slides in Markdown, editing objects, setting notes and themes, and running the design check. You watch the changes happen, can stop them midway, and **undo the whole run in one click**.
+- It streams responses, caches the system prompt, and uses server-side refusal fallback.
+
+### Design check
+A live linter for slides (toolbar ✓ button; the badge shows the issue count):
+- text that overflows its box, objects off the slide, low contrast (WCAG AA), text under 12px
+- more than three typefaces, edges that are *almost* aligned, empty text boxes, crowded slides, overlapping text, slides without a title
+
+Each issue has **Show**, and most have a one-click fix (fit text, fix color, snap, move inside, unify fonts…). **Fix all** applies every fix as a single undo step. The same checks run in the CLI.
+
+### Decks as code
+Write presentations in Markdown. Open them with File › Open Markdown, edit the whole deck as Markdown (⌘⇧M, with a live preview), or download any deck as `.md`. Layouts are chosen automatically: a title slide, section headers, title + content, two columns when text sits next to a table, chart or image, and a quote layout.
+
+````markdown
+---
+title: Q3 Business Review
+theme: Carbon Dark
+---
+
+# Q3 Business Review
+## Prepared for the leadership team
+
+---
+
+# Revenue grew in every region
+- Total revenue up **12%**
+  - EMEA led with +16%
+
+```chart column
+title: Revenue ($M)
+categories: Q1, Q2, Q3
+EMEA: 90, 104, 118
+APAC: 70, 88, 97
+```
+
+Note: speaker notes go after "Note:"
+
+---
+
+| Segment | Q2 | Q3 |
+|---|---|---|
+| Cloud | 140 | 162 |
+````
+
+Also supported: `![alt](url)` images, `> quotes`, numbered lists, `` `code` ``, `~~strike~~`, and per-slide directives such as `<!-- layout: section -->`, `<!-- background: #161616 -->` and `<!-- transition: fade 0.8 -->`. A full example is in [`examples/quarterly-review.md`](examples/quarterly-review.md).
+
+**Command line** (`npm run build:cli` once, then `npx slidecraft …` or `node bin/slidecraft.mjs …`):
+
+```bash
+slidecraft build talk.md -o talk.pptx            # Markdown → PowerPoint (also .html, .json, .md)
+slidecraft build deck.pptx -o deck.md            # PowerPoint → Markdown, for diffs and review
+slidecraft lint deck.pptx                        # design check; exit code 1 on errors (CI-friendly)
+slidecraft lint deck.pptx --fix -o fixed.pptx    # apply the automatic fixes
+```
+
 ### PowerPoint in and out
 - **Open .pptx**: File › Open PowerPoint (⌘O), or drag a `.pptx` onto the window. The importer reads the Office Open XML directly. It handles:
   - theme colors and fonts, including `lumMod`/`lumOff`/`tint`/`shade`
@@ -83,6 +142,9 @@ slidecraft.onChange(deck => console.log(deck.slides.length));
 | History | `undo()`, `redo()`, `batch(fn)` |
 | Files | `exportPptx()`, `openPptx(url \| Blob \| ArrayBuffer)`, `exportHtml()`, `exportJson()`, `save()`, `print()` |
 | Present | `present(i)`, `presenterView(i)`, `next()`, `prev()`, `exitPresentation()` |
+| Design | `lint()`, `fixIssues(keys?)` |
+| Markdown | `toMarkdown()`, `fromMarkdown(md)` |
+| AI | `ask(prompt)`, `setApiKey(key)` |
 | Events | `onChange(fn)`, `notify(title, kind)` |
 
 ## Getting started
@@ -116,10 +178,12 @@ Help › Keyboard Shortcuts (⌘/) has the full list. The main ones:
 
 ```
 src/
-├── model/        # Data model, themes, layouts, geometry (snapping, align), rich text, colors
+├── model/        # Data model, themes, layouts, geometry, rich text, colors, Markdown, design lint
 ├── store/        # Zustand + Immer editor store with structural-sharing undo history
 ├── io/           # PPTX import/export, HTML export, images, file actions, rasterizing
 ├── api.ts        # window.slidecraft automation API
+├── ai/           # Claude assistant: agent loop and deck-editing tools
+├── cli/          # slidecraft command-line tool (Node + jsdom)
 ├── components/   # Carbon UI: header/menubar, toolbar, canvas, panels, dialogs, slideshow
 ├── hooks/        # Keyboard shortcuts, clipboard, auto-save
 ├── styles/       # app.scss (Carbon tokens + editor layout)
@@ -131,6 +195,7 @@ src/
 - `@carbon/react` and `@carbon/icons-react`, using IBM Plex type
 - Zustand + Immer for state
 - PptxGenJS for PowerPoint export; JSZip with a custom OOXML parser for import
+- `@anthropic-ai/sdk` (tool runner) for the AI assistant
 
 ## License
 

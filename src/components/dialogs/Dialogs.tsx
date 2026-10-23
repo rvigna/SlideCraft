@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { deckToMarkdown, markdownToDeck } from '../../model/markdown';
 import { Button, Checkbox, ClickableTile, Modal, Select, SelectItem, TextInput } from '@carbon/react';
 import { ChartView } from '../ChartView';
 import { seriesColor } from '../../model/palette';
@@ -286,6 +287,35 @@ function ChartDialog() {
   );
 }
 
+function MarkdownDialog() {
+  const deck = ed.useEditor(s => s.deck);
+  const [text, setText] = useState(() => deckToMarkdown(deck));
+  const preview = useMemo(() => { try { return markdownToDeck(text); } catch { return null; } }, [text]);
+  return (
+    <Modal
+      open size="lg"
+      modalHeading="Edit deck as Markdown"
+      primaryButtonText="Apply"
+      secondaryButtonText="Cancel"
+      primaryButtonDisabled={!preview}
+      onRequestClose={closeDialog}
+      onRequestSubmit={() => { if (preview) ed.loadDeck(preview); closeDialog(); }}
+    >
+      <div className="sc-md-dialog">
+        <textarea className="sc-md-editor" spellCheck={false} aria-label="Deck Markdown" value={text} onChange={e => setText(e.target.value)} />
+        <div className="sc-md-preview" aria-label="Preview">
+          {preview?.slides.map((s, i) => (
+            <div key={i} className="sc-md-thumb"><span>{i + 1}</span><SlideStage slide={s} width={200} /></div>
+          ))}
+        </div>
+      </div>
+      <p className="sc-dialog-hint">
+        One “# Title” per slide, slides separated by “---”. Layouts are chosen automatically; shapes and icons aren’t represented in Markdown. Apply is undoable ({MOD}Z). The same format works with the <code>slidecraft</code> command-line tool.
+      </p>
+    </Modal>
+  );
+}
+
 function NewDialog() {
   return (
     <Modal
@@ -325,6 +355,7 @@ export function Dialogs() {
     case 'about': return <AboutDialog />;
     case 'new': return <NewDialog />;
     case 'chart': return <ChartDialog />;
+    case 'markdown': return <MarkdownDialog />;
     default: return null;
   }
 }

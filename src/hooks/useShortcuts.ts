@@ -41,7 +41,7 @@ export function useShortcuts() {
           case 'b': e.preventDefault(); toggleFormat('bold'); return;
           case 'i': e.preventDefault(); toggleFormat('italic'); return;
           case 'u': e.preventDefault(); toggleFormat('underline'); return;
-          case 'm': e.preventDefault(); ed.addSlide(); return;
+          case 'm': e.preventDefault(); if (e.shiftKey) openDialog('markdown'); else ed.addSlide(); return;
           case ']': case '}': e.preventDefault(); ed.reorderSelection(e.shiftKey ? 'front' : 'forward'); return;
           case '[': case '{': e.preventDefault(); ed.reorderSelection(e.shiftKey ? 'back' : 'backward'); return;
           case '=': case '+': e.preventDefault(); ed.setZoom(state.zoom + 10); return;

@@ -43,8 +43,9 @@ export function plainToHtml(text: string): string {
 
 export function htmlToPlain(html: string): string {
   const doc = new DOMParser().parseFromString(
-    `<div>${html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(div|p|li)>/gi, '\n')}</div>`, 'text/html');
-  return (doc.body.textContent ?? '').replace(/\n+$/, '');
+    `<div>${html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(div|p|li)>|<(li|ul|ol)(\s[^>]*)?>/gi, '\n')}</div>`, 'text/html');
+  // Nested lists open inside an item, so item boundaries need breaks on both sides
+  return (doc.body.textContent ?? '').replace(/\n{2,}/g, '\n').replace(/^\n+|\n+$/g, '');
 }
 
 // ---------------------------------------------------------------
