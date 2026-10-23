@@ -3,6 +3,16 @@ import type { TextObject } from '../model/types';
 import { fontStack } from '../model/fonts';
 
 let probe: HTMLDivElement | null = null;
+// Unchanged objects keep their identity across edits (Immer), so their measurement can be reused
+let cache = new WeakMap<TextObject, number>();
+if (typeof document !== 'undefined') document.fonts?.addEventListener?.('loadingdone', () => { cache = new WeakMap(); });
+
+/** measureTextHeight, remembered per object until web fonts change */
+export function measureTextHeightCached(obj: TextObject): number {
+  let h = cache.get(obj);
+  if (h === undefined) { h = measureTextHeight(obj); if (Object.isFrozen(obj)) cache.set(obj, h); }
+  return h;
+}
 
 export function measureTextHeight(obj: TextObject): number {
   if (typeof document === 'undefined') return 0;

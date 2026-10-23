@@ -2,10 +2,10 @@ import { commit, select, goToSlide, useEditor, toast } from '../store/editor';
 import { useUi } from '../store/ui';
 import { fixIssue, lintDeck, type LintContext, type LintIssue } from '../model/lint';
 import { getTheme } from '../model/themes';
-import { measureTextHeight } from '../io/measure';
+import { measureTextHeightCached } from '../io/measure';
 
 export function lintContext(): LintContext {
-  return { measureText: measureTextHeight, theme: getTheme(useEditor.getState().deck.themeName) };
+  return { measureText: measureTextHeightCached, theme: getTheme(useEditor.getState().deck.themeName) };
 }
 
 export function relint() {

@@ -3,11 +3,10 @@ import { betaTool } from '@anthropic-ai/sdk/helpers/beta/json-schema';
 import * as ed from '../store/editor';
 import type { Deck, Slide, SlideObject } from '../model/types';
 import { THEMES, getTheme } from '../model/themes';
-import { deckToMarkdown, markdownToDeck } from '../model/markdown';
+import { deckToMarkdown, markdownToDeck, slidesFromMarkdown as mdSlides } from '../model/markdown';
 import { htmlToPlain, sanitizeHtml, plainToHtml } from '../model/richtext';
 import { lintDeck, fixIssue, RULES } from '../model/lint';
 import { lintContext } from '../components/lintActions';
-import { newSlideId } from '../model/factory';
 import { applyMotion, MOTION_PRESETS, type MotionOptions } from '../model/motion';
 
 /** Report of what the assistant changed, shown in the chat */
@@ -38,9 +37,8 @@ export function describeDeck(deck: Deck, current: number): string {
 
 /** Build slides from Markdown in the deck's theme, with ids that can't collide with existing objects */
 function slidesFromMarkdown(markdown: string, d: Deck, ids: { take(): number }): Slide[] {
-  const body = markdown.replace(/^﻿?---\s*\n[\s\S]*?\n---\s*\n/, '');
-  const built = markdownToDeck(`---\ntheme: ${d.themeName}\n---\n${body}`);
-  return built.slides.map(s => ({ ...s, id: newSlideId(), objects: s.objects.map(o => ({ ...o, id: ids.take() })) }));
+  // Tools send slide-by-slide Markdown: only "---" separates slides
+  return mdSlides(markdown, d, ids, { autoSplit: false });
 }
 
 function slideIndex(i: unknown): number {
@@ -50,7 +48,7 @@ function slideIndex(i: unknown): number {
   return n;
 }
 
-const MARKDOWN_HELP = 'Slide Markdown: "# Title", "## Subtitle", paragraphs, "- bullets" (indent 2 spaces to nest), GFM tables, ```chart column|bar|line|area|pie|doughnut blocks (lines "title: …", "categories: A, B", "Series name: 1, 2"), "![alt](url)" images, "> quote", "<!-- layout: title|section|content|quote|big-number -->", "Note: speaker notes". Separate slides with a line containing only "---".';
+const MARKDOWN_HELP = 'Slide Markdown: "# Title", "## Subtitle", paragraphs, "- bullets" (indent 2 spaces to nest), GFM tables, ```chart column|bar|line|area|pie|doughnut blocks (lines "title: …", "categories: A, B", "Series name: 1, 2"), "![alt](url)" images, "> quote", "<!-- layout: title|section|content|quote|big-number -->", "Note: speaker notes". Layout helpers: "|||" on its own line starts a second column; 2–4 "### Heading" sections each followed by a sentence become side-by-side cards; a title that is just a number ("# 42%") plus one line becomes a big-number slide; "![bg left](url)" or "![bg right](url)" puts a picture on half the slide; any other ``` fenced block becomes a code box. Separate slides with a line containing only "---".';
 
 export function buildTools(activity: Activity) {
   return [

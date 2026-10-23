@@ -337,7 +337,7 @@ MOTION    applyMotion('subtle' | 'smooth' | 'focus' | 'lively' | 'none', { scope
 DESIGN    lint() · fixIssues(keys?)
 MARKDOWN  toMarkdown() · fromMarkdown(md)
 AI        ask(prompt) · setApiKey(key)
-FILES     exportPptx({ download }) · openPptx(url|Blob|ArrayBuffer) · exportHtml() · exportJson() · save() · print()
+FILES     exportPptx({ download }) · openPptx(url|Blob|ArrayBuffer) · exportHtml() · exportJson() · save() (async) · print()
 PRESENT   present(i) · presenterView(i) · next() · prev() · exitPresentation()
 EVENTS    onChange(fn) → unsubscribe · notify(title, kind)
 

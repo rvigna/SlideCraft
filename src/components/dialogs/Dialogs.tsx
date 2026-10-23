@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { deckToMarkdown, markdownToDeck } from '../../model/markdown';
-import { Button, Checkbox, ClickableTile, Modal, Select, SelectItem, TextInput } from '@carbon/react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { deckToMarkdown, markdownToDeck, slidesFromMarkdown } from '../../model/markdown';
+import { Button, Checkbox, ClickableTile, ContentSwitcher, Modal, Select, SelectItem, Switch, TextInput } from '@carbon/react';
 import { ChartView } from '../ChartView';
 import { MotionWizard } from './MotionWizard';
 import { seriesColor } from '../../model/palette';
@@ -11,7 +11,7 @@ import { createBlankSlide, createDeck, IdSource } from '../../model/factory';
 import { LAYOUTS } from '../../model/layouts';
 import { applyThemeToSlide, THEMES } from '../../model/themes';
 import { createTextObject, createShapeObject } from '../../model/factory';
-import type { ChartObject, ChartType, Slide } from '../../model/types';
+import type { ChartObject, ChartType, Deck, Slide } from '../../model/types';
 import { SlideStage } from '../SlideObjectView';
 import { insertImage, pickFile, readFileAsDataURL } from '../../io/images';
 import { MOD, SHIFT, ALT } from '../menus';
@@ -288,30 +288,95 @@ function ChartDialog() {
   );
 }
 
+const MD_SNIPPETS: { label: string; text: string }[] = [
+  { label: 'Slide', text: '\n\n---\n\n# Title\n- Point\n- Point\n' },
+  { label: 'Columns', text: '\n\n---\n\n# Compare\n### Before\n- Manual\n\n|||\n\n### After\n- Automatic\n' },
+  { label: 'Cards', text: '\n\n---\n\n# Three ideas\n### Fast\nOne line about it\n### Simple\nOne line about it\n### Open\nOne line about it\n' },
+  { label: 'Chart', text: '\n\n---\n\n# Revenue\n```chart column\ntitle: Revenue ($M)\ncategories: Q1, Q2, Q3\nEMEA: 90, 104, 118\nAPAC: 70, 88, 97\n```\n' },
+  { label: 'Table', text: '\n\n---\n\n# Numbers\n| Region | Q2 | Q3 |\n|---|---|---|\n| EMEA | 104 | 118 |\n' },
+  { label: 'Code', text: '\n\n---\n\n# Getting started\n```bash\nnpm install\nnpm run dev\n```\n' },
+  { label: 'Big number', text: '\n\n---\n\n# 42%\nof customers came back within a week\n' },
+  { label: 'Picture', text: '\n\n---\n\n# Our team\n![bg left](https://picsum.photos/id/1005/800/900)\n- Remote first\n- 12 countries\n' },
+  { label: 'Quote', text: '\n\n---\n\n> Simplicity is the ultimate sophistication.\n\n# Leonardo da Vinci\n' },
+];
+
 function MarkdownDialog() {
   const deck = ed.useEditor(s => s.deck);
-  const [text, setText] = useState(() => deckToMarkdown(deck));
-  const preview = useMemo(() => { try { return markdownToDeck(text); } catch { return null; } }, [text]);
+  const slideIndex = ed.useEditor(s => s.slideIndex);
+  const [mode, setMode] = useState<'replace' | 'insert'>('replace');
+  const [deckText, setDeckText] = useState(() => deckToMarkdown(deck));
+  const [newText, setNewText] = useState('');
+  const text = mode === 'replace' ? deckText : newText;
+  const setText = mode === 'replace' ? setDeckText : setNewText;
+  const ref = useRef<HTMLTextAreaElement>(null);
+  // Parsing and drawing thumbnails can lag typing on long decks: preview the latest text when React has time
+  const deferred = useDeferredValue(text);
+  const preview = useMemo(() => {
+    if (mode === 'insert' && !deferred.trim()) return null;
+    try {
+      return mode === 'replace' ? markdownToDeck(deferred) : { ...deck, slides: slidesFromMarkdown(deferred, deck, new IdSource(1)) };
+    } catch { return null; }
+  }, [deferred, mode, deck]);
+  const insert = (snippet: string) => {
+    const el = ref.current;
+    const at = el ? el.selectionEnd : text.length;
+    const piece = mode === 'insert' && !text.trim() ? snippet.replace(/^\n\n---\n\n/, '') : snippet;
+    const next = text.slice(0, at) + piece + text.slice(at);
+    setText(next);
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(at + piece.length, at + piece.length); });
+  };
+  const apply = () => {
+    if (!preview) return;
+    if (mode === 'replace') ed.loadDeck(preview);
+    else {
+      let added = 0;
+      ed.commit((d, ids) => {
+        const slides = slidesFromMarkdown(newText, d as Deck, ids);
+        added = slides.length;
+        d.slides.splice(slideIndex + 1, 0, ...slides);
+      });
+      ed.goToSlide(slideIndex + 1);
+      ed.toast('success', `Added ${added} slide${added === 1 ? '' : 's'}`);
+    }
+    closeDialog();
+  };
+  const count = preview?.slides.length ?? 0;
   return (
     <Modal
       open size="lg"
-      modalHeading="Edit deck as Markdown"
-      primaryButtonText="Apply"
+      modalHeading="Markdown"
+      primaryButtonText={mode === 'replace' ? 'Replace deck' : `Add ${count || ''} slide${count === 1 ? '' : 's'} after slide ${slideIndex + 1}`}
       secondaryButtonText="Cancel"
       primaryButtonDisabled={!preview}
       onRequestClose={closeDialog}
-      onRequestSubmit={() => { if (preview) ed.loadDeck(preview); closeDialog(); }}
+      onRequestSubmit={apply}
     >
+      <div className="sc-md-bar">
+        <ContentSwitcher size="sm" selectedIndex={mode === 'replace' ? 0 : 1} onChange={({ index }) => setMode(index === 0 ? 'replace' : 'insert')} className="sc-md-mode">
+          <Switch name="replace" text="Whole deck" />
+          <Switch name="insert" text="Add slides" />
+        </ContentSwitcher>
+        <div className="sc-md-snippets" role="group" aria-label="Insert snippet">
+          {MD_SNIPPETS.map(s => <Button key={s.label} kind="ghost" size="sm" onClick={() => insert(s.text)}>{s.label}</Button>)}
+        </div>
+      </div>
       <div className="sc-md-dialog">
-        <textarea className="sc-md-editor" spellCheck={false} aria-label="Deck Markdown" value={text} onChange={e => setText(e.target.value)} />
+        <textarea
+          ref={ref} className="sc-md-editor" spellCheck={false} aria-label="Markdown" value={text}
+          placeholder={'Paste notes, an outline or a README.\n\n# Each heading starts a slide\n- bullets, tables, ```chart blocks, images…\n\nOr use the snippet buttons above.'}
+          onChange={e => setText(e.target.value)}
+        />
         <div className="sc-md-preview" aria-label="Preview">
+          <p className="sc-md-count" aria-live="polite">{count ? `${count} slide${count === 1 ? '' : 's'}` : 'Preview'}</p>
           {preview?.slides.map((s, i) => (
-            <div key={i} className="sc-md-thumb"><span>{i + 1}</span><SlideStage slide={s} width={200} /></div>
+            <div key={i} className="sc-md-thumb"><span>{mode === 'insert' ? slideIndex + 2 + i : i + 1}</span><SlideStage slide={s} width={200} /></div>
           ))}
         </div>
       </div>
       <p className="sc-dialog-hint">
-        One “# Title” per slide, slides separated by “---”. Layouts are chosen automatically; shapes and icons aren’t represented in Markdown. Apply is undoable ({MOD}Z). The same format works with the <code>slidecraft</code> command-line tool.
+        Slides are separated by “---”. Without separators, each “#” heading starts a slide (each “##” when there’s a single “#” title).
+        “|||” starts a column, “###” sections become cards, “![bg left](url)” adds a half-slide picture, long lists continue onto extra slides.
+        Front matter can set <code>theme</code>, <code>motion</code>, <code>footer</code> and <code>paginate: true</code>. Undo with {MOD}Z.
       </p>
     </Modal>
   );

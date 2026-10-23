@@ -4,38 +4,85 @@ import { loadDeck, markSaved, toast, useEditor } from '../store/editor';
 import { setBusy, useUi } from '../store/ui';
 import { normalizeDeck } from '../model/factory';
 import { downloadBlob, pickFile, safeFileName } from './images';
+import { idbGet, idbSet } from './storage';
 
 export const STORAGE_KEY = 'slidecraft-data';
 
-export function saveToBrowser(announce = false): boolean {
+interface SavedDeck { savedAt: string; currentSlideIndex: number; version: number }
+
+function snapshot() {
   const { deck, slideIndex } = useEditor.getState();
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...deck, currentSlideIndex: slideIndex, savedAt: new Date().toISOString(), version: 2 }));
-    markSaved();
-    if (announce) toast('success', 'Saved in this browser');
-    return true;
-  } catch (err) {
-    const quota = err instanceof DOMException && /quota/i.test(err.name + err.message);
-    markSaved(quota ? 'Browser storage is full' : 'Could not save');
-    if (announce || quota) {
-      toast('error', quota ? 'Browser storage is full' : 'Could not save',
-        quota ? 'Large images exceed the browser limit — use File › Save as PowerPoint to keep your work.' : String(err));
-    }
-    return false;
+  return { deck, data: { ...deck, currentSlideIndex: slideIndex, savedAt: new Date().toISOString(), version: 2 } };
+}
+
+function saveFailed(err: unknown, announce: boolean) {
+  const quota = err instanceof DOMException && /quota/i.test(err.name + err.message);
+  markSaved(quota ? 'Browser storage is full' : 'Could not save');
+  if (announce || quota) {
+    toast('error', quota ? 'Browser storage is full' : 'Could not save',
+      quota ? 'Free up disk space, or use File › Save as PowerPoint to keep your work.' : String(err));
   }
 }
 
-export function restoreFromBrowser(): boolean {
+/** Save the deck in this browser (IndexedDB, falling back to localStorage) */
+export async function saveToBrowser(announce = false): Promise<boolean> {
+  const { deck, data } = snapshot();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const data = JSON.parse(raw);
-    loadDeck(data, { resetHistory: true });
-    const index = Math.min(Number(data.currentSlideIndex) || 0, useEditor.getState().deck.slides.length - 1);
-    useEditor.setState({ slideIndex: Math.max(0, index) });
-    markSaved();
-    return true;
+    await idbSet(STORAGE_KEY, data);
+    // Drop the older localStorage copy so a stale one never wins on restore
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* storage blocked */ }
   } catch {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (err) { saveFailed(err, announce); return false; }
+  }
+  // Only clear "unsaved" if nothing changed while the write was in flight
+  if (useEditor.getState().deck === deck) markSaved();
+  if (announce) toast('success', 'Saved in this browser');
+  return true;
+}
+
+/** Best-effort synchronous save while the tab is closing (IndexedDB writes may not finish) */
+export function saveOnExit() {
+  if (!useEditor.getState().dirty || !restoreSettled) return;
+  void saveToBrowser();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot().data)); } catch { /* too big: IndexedDB copy only */ }
+}
+
+let restoreSettled = typeof indexedDB === 'undefined';
+/** False until the saved session has been read; auto-save waits so a blank deck can't overwrite it */
+export const isRestoreSettled = () => restoreSettled;
+
+function applySaved(data: SavedDeck) {
+  loadDeck(data, { resetHistory: true });
+  const index = Math.min(Number(data.currentSlideIndex) || 0, useEditor.getState().deck.slides.length - 1);
+  useEditor.setState({ slideIndex: Math.max(0, index) });
+  markSaved();
+}
+
+const newer = (a: SavedDeck | null | undefined, b: SavedDeck | null | undefined) => (a && (!b || (a.savedAt ?? '') >= (b.savedAt ?? '')) ? a : b) ?? null;
+
+/** Load the last session. Resolves within `timeoutMs` even if storage is slow; a late copy still loads if nothing was edited yet. */
+export async function restoreFromBrowser(timeoutMs = 3000): Promise<boolean> {
+  let local: SavedDeck | null = null;
+  try { const raw = localStorage.getItem(STORAGE_KEY); local = raw ? JSON.parse(raw) : null; } catch { /* corrupt or blocked */ }
+  const stored = idbGet<SavedDeck>(STORAGE_KEY).catch(() => undefined);
+  const late = Symbol('late');
+  const first = await Promise.race([stored, new Promise<typeof late>(r => setTimeout(() => r(late), timeoutMs))]);
+  try {
+    if (first !== late) {
+      restoreSettled = true;
+      // Whichever copy is newer (localStorage holds decks from older versions and exit snapshots)
+      const data = newer(first, local);
+      if (data) applySaved(data);
+      return !!data;
+    }
+    if (local) applySaved(local);
+    void stored.then(data => {
+      restoreSettled = true;
+      if (data && newer(data, local) === data && data !== local && !useEditor.getState().dirty) applySaved(data);
+    });
+    return !!local;
+  } catch {
+    restoreSettled = true;
     return false;
   }
 }

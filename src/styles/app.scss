@@ -440,7 +440,11 @@ li.sc-anim { display: list-item; }
 .sc-ai > .cds--btn--ghost { margin: 0 $spacing-05; }
 
 // Markdown editor dialog
-.sc-md-dialog { display: flex; gap: $spacing-05; height: 56vh; }
+.sc-md-bar { display: flex; align-items: center; gap: $spacing-05; margin-bottom: $spacing-04; flex-wrap: wrap; }
+.sc-md-mode { width: auto; flex-shrink: 0; }
+.sc-md-snippets { display: flex; flex-wrap: wrap; gap: 0; }
+.sc-md-count { @include type-style('label-01'); color: $text-secondary; margin: 0 0 $spacing-02 28px; }
+.sc-md-dialog { display: flex; gap: $spacing-05; height: 52vh; }
 .sc-md-editor {
   flex: 1; min-width: 0; resize: none; padding: $spacing-04; border: 0; border-bottom: 1px solid $border-strong-01; outline: none;
   background: $field-02; color: $text-primary; @include type-style('code-02'); line-height: 1.55; tab-size: 2;

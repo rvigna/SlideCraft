@@ -5,11 +5,13 @@ import App from './App';
 import { restoreFromBrowser } from './io/files';
 import { installApi } from './api';
 
-restoreFromBrowser();
 installApi();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// Restore the last session before the first render so the editor never flashes an empty deck
+void restoreFromBrowser().finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

@@ -19,13 +19,23 @@ A live linter for slides (toolbar ✓ button; the badge shows the issue count):
 Each issue has **Show**, and most have a one-click fix (fit text, fix color, snap, move inside, unify fonts…). **Fix all** applies every fix as a single undo step. The same checks run in the CLI.
 
 ### Decks as code
-Write presentations in Markdown. Open them with File › Open Markdown, edit the whole deck as Markdown (⌘⇧M, with a live preview), or download any deck as `.md`. Layouts are chosen automatically: a title slide, section headers, title + content, two columns when text sits next to a table, chart or image, and a quote layout.
+Write presentations in Markdown, or paste notes, an outline or a README. Open a file with File › Open Markdown, or press ⌘⇧M. The Markdown dialog has two modes: **Whole deck** edits the entire deck as Markdown, and **Add slides** inserts new slides after the current one. Both show a live preview and have snippet buttons (columns, cards, chart, table, code, big number, picture, quote). You can also download any deck as `.md`.
+
+SlideCraft picks the layout from the content, and the generated slides pass the design check:
+- **Slides split themselves.** `---` separates slides. Without it, each `#` heading starts a slide, or each `##` heading when the document has a single `#` title, which becomes the title slide; a `##` directly under it is the subtitle.
+- **Long lists continue** on extra slides ("Title (continued)"), in evenly sized parts, instead of shrinking to unreadable text. Each part stays under the design check's limits of 8 bullets and 90 words.
+- **Columns**: `|||` on its own line starts the next column. **Cards**: 2–4 `###` sections become side-by-side cards.
+- **Code**: a fenced block becomes a code box. **Big number**: a title that is just a number (`# 42%`) gets the big-number layout.
+- **Pictures**: `![bg](url)` makes a background, and `![bg left](url)` / `![bg right](url)` puts a picture on half the slide.
+- **Front matter**: `theme`, `motion`, `footer` (text on every slide) and `paginate: true` (slide numbers).
 
 ````markdown
 ---
 title: Q3 Business Review
 theme: Carbon Dark
 motion: subtle
+footer: Q3 Review · Internal
+paginate: true
 ---
 
 # Q3 Business Review
@@ -48,12 +58,36 @@ Note: speaker notes go after "Note:"
 
 ---
 
-| Segment | Q2 | Q3 |
-|---|---|---|
-| Cloud | 140 | 162 |
+# Three priorities
+### Focus
+Fewer, bigger bets
+### Speed
+Ship every week
+### Partners
+Grow the ecosystem
+
+---
+
+# Before and after
+- Manual exports
+
+|||
+
+- One source of truth
+
+---
+
+# 42%
+of trial users upgraded
+
+---
+
+# The team
+![bg left](team.jpg)
+- Twelve people, five countries
 ````
 
-Also supported: `![alt](url)` images, `> quotes`, numbered lists, `` `code` ``, `~~strike~~`, and per-slide directives such as `<!-- layout: section -->`, `<!-- background: #161616 -->` and `<!-- transition: fade 0.8 -->`. A full example is in [`examples/quarterly-review.md`](examples/quarterly-review.md).
+Also supported: `![alt](url)` images, `> quotes`, numbered lists, `` `code` ``, `~~strike~~`, `***bold italic***`, backslash escapes, and per-slide directives such as `<!-- layout: section -->`, `<!-- background: #161616 -->`, `<!-- transition: fade 0.8 -->` and `<!-- motion: focus -->`. A full example is in [`examples/quarterly-review.md`](examples/quarterly-review.md).
 
 **Command line** (`npm run build:cli` once, then `npx slidecraft …` or `node bin/slidecraft.mjs …`):
 
@@ -117,7 +151,7 @@ In Markdown, add `motion: subtle` to the front matter. The assistant can do it t
 - **Presenter view** (⌥F5): a separate window with the current and next slide, speaker notes, a timer and a clock. Move the audience window to the projector and click it once to go full screen.
 
 ### Files
-- Your work auto-saves to this browser.
+- Your work auto-saves to this browser (IndexedDB, so decks with many images fit; it also saves when you switch tabs or close the window).
 - Exports: PowerPoint, PDF (through the print dialog, one slide per page), a self-contained **HTML slideshow**, and SlideCraft JSON.
 - Decks saved by SlideCraft 1.x still load. Font Awesome icons are mapped to their Carbon equivalents.
 
@@ -151,7 +185,7 @@ slidecraft.onChange(deck => console.log(deck.slides.length));
 | Slides | `addSlide({layout, after, background, notes})`, `updateSlide(i, patch)`, `duplicateSlide`, `deleteSlide`, `moveSlide(from, to)`, `goToSlide`, `applyLayout` |
 | Objects | `addText`, `addBullets`, `addShape`, `addImage`, `addIcon`, `addTable`, `addChart`, `update`, `remove`, `select`, `align`, `distribute`, `arrange` |
 | History | `undo()`, `redo()`, `batch(fn)` |
-| Files | `exportPptx()`, `openPptx(url \| Blob \| ArrayBuffer)`, `exportHtml()` (async), `exportJson()`, `save()`, `print()` |
+| Files | `exportPptx()`, `openPptx(url \| Blob \| ArrayBuffer)`, `exportHtml()` (async), `exportJson()`, `save()` (async), `print()` |
 | Present | `present(i)`, `presenterView(i)`, `next()`, `prev()`, `exitPresentation()` |
 | Design | `lint()`, `fixIssues(keys?)` |
 | Motion | `applyMotion(preset, {scope, slideIndex, animateContent, revealOnClick, speed})` |
